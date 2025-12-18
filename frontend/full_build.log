@@ -1,0 +1,5 @@
+
+> turnover-frontend@0.0.0 build
+> tsc && vite build
+
+src/pages/IndividualPage.tsx(94,53): error TS2304: Cannot find name 'Loader2'.
