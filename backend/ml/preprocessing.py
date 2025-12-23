@@ -98,14 +98,11 @@ def load_and_preprocess_one_year(df):
     for col in df.columns:
         if df[col].dtype == 'object':
             # Check if any value is a stringified list like '[0.5]'
-            # DEBUG and Cleanup
             if df[col].astype(str).str.contains(r'[\[\]]', regex=True).any():
-                 print(f"DEBUG: Found brackets in column {col}. Cleaning...")
                  # Aggressive cleaning: replace brackets and quotes globally
-                 df[col] = df[col].astype(str).str.replace('[', '', regex=False).str.replace(']', '', regex=False).str.replace("'", '', regex=False).str.replace('"', '', regex=False)
+                 df[col] = df[col].astype(str).str.replace(r"[\[\]'\"]", "", regex=True)
                  # Force numeric
                  df[col] = pd.to_numeric(df[col], errors='coerce')
-                 print(f"DEBUG: Column {col} cleaned. Nulls: {df[col].isnull().sum()}")
 
     df = feature_engineering(df)
 
