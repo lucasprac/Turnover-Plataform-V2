@@ -204,13 +204,47 @@ def predict_aggregate_endpoint(filters: AggregateFilters):
             "b1_PDI_rate": filtered_df['b1_PDI_rate'].mean() if 'b1_PDI_rate' in filtered_df.columns else 0.0
         }
         
-        onb_scores = []
-        for _, row in filtered_df.iterrows():
-            d = row.to_dict()
-            d = enrich_features(d)
-            onb_scores.append(d.get('M_Onboarding_Final_Score', 0))
+        # Vectorized calculation for M_Onboarding_Final_Score
+        # Formula: (5 * 3d + 25 * Avg(15d) + 70 * Avg(30d)) / 100
+
+        cols_15d = [
+            'M_Onb_15d_Credibility', 'M_Onb_15d_Respect', 'M_Onb_15d_Impartiality',
+            'M_Onb_15d_Pride', 'M_Onb_15d_Camaraderie'
+        ]
+        cols_30d = [
+            'M_Onb_30d_Credibility', 'M_Onb_30d_Respect', 'M_Onb_30d_Impartiality',
+            'M_Onb_30d_Pride', 'M_Onb_30d_Camaraderie'
+        ]
+
+        # Use fillna(0) to handle missing values safely as in original logic (d.get(c, 0))
+        onb_3d = filtered_df.get('M_Onb_3d_Integration', pd.Series(0, index=filtered_df.index)).fillna(0)
+
+        # Check if columns exist, if not create dummy 0 columns to match d.get(c, 0) behavior
+        # However, for performance, we should only select existing columns or fill 0 if all missing.
+        # But to match exact logic of "get(c, 0)", we need to ensure we don't error on missing cols.
+
+        # Helper to get values or 0
+        def get_vals_or_zero(df, cols):
+            valid_cols = [c for c in cols if c in df.columns]
+            if not valid_cols:
+                return pd.Series(0, index=df.index)
+            # If some cols are missing, they should be treated as 0 in the sum?
+            # The original logic was: vals_15d = [data.get(c, 0) for c in cols_15d]
+            # avg_15d = sum(vals_15d) / len(vals_15d)
+            # So missing column = 0 value in the average calculation.
             
-        agg_data['M_Onboarding_Final_Score'] = sum(onb_scores) / len(onb_scores) if onb_scores else 0
+            # We can create a subset dataframe with all columns, filling missing ones with 0
+            subset = df[valid_cols].fillna(0)
+            if len(valid_cols) < len(cols):
+                for c in set(cols) - set(valid_cols):
+                    subset[c] = 0
+            return subset[cols].mean(axis=1)
+
+        avg_15d = get_vals_or_zero(filtered_df, cols_15d)
+        avg_30d = get_vals_or_zero(filtered_df, cols_30d)
+
+        onboarding_scores = (5 * onb_3d + 25 * avg_15d + 70 * avg_30d) / 100
+        agg_data['M_Onboarding_Final_Score'] = onboarding_scores.mean() if not onboarding_scores.empty else 0
         
         result = predict_aggregate(agg_data)
         count = result.get('prediction', 0.0)
