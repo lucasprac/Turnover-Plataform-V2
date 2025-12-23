@@ -22,6 +22,8 @@ class IndividualInput(BaseModel):
 class IndividualPrediction(BaseModel):
     turnover_probability: float
     shap_values: list
+    contributions: list = [] # Shapash nomenclature
+    grouped_contributions: list = []
     risk_level: str
 
 class AggregateFilters(BaseModel):
@@ -35,6 +37,8 @@ class AggregatePrediction(BaseModel):
     total_in_cohort: int
     cohort_risk_rate: float
     shap_values: list = []
+    contributions: list = []
+    grouped_contributions: list = []
 
 
 from backend.app.services.training_manager import training_manager
@@ -119,12 +123,14 @@ def predict_individual_endpoint(input_data: IndividualInput):
         result = predict_individual(data_dict)
         
         # Transform SHAP dict to list
-        shap_list = [{"name": k, "value": v} for k, v in result['shap_values'].items()]
+        shap_list = [{"feature": k, "value": v, "base_value": 0.0} for k, v in result['shap_values'].items()]
         shap_list.sort(key=lambda x: abs(x['value']), reverse=True)
         
         return {
             "turnover_probability": result['turnover_probability'],
-            "shap_values": shap_list[:10], # Top 10
+            "shap_values": shap_list[:10], # Top 10 legacy
+            "contributions": shap_list[:10], # New standard
+            "grouped_contributions": result.get('grouped_shap', []),
             "risk_level": "High" if result['turnover_probability'] > 0.5 else "Low"
         }
 
@@ -194,7 +200,8 @@ def predict_aggregate_endpoint(filters: AggregateFilters):
             "B2_Public_service_status_ger": filtered_df['B2_Public_service_status_ger'].mode()[0] if 'B2_Public_service_status_ger' in filtered_df else 'No', 
             
             "AgeGroup": filters.age_group if filters.age_group else "25_to_35", 
-            "TenureGroup": filters.tenure_group if filters.tenure_group else "1_to_3yr"
+            "TenureGroup": filters.tenure_group if filters.tenure_group else "1_to_3yr",
+            "b1_PDI_rate": filtered_df['b1_PDI_rate'].mean() if 'b1_PDI_rate' in filtered_df.columns else 0.0
         }
         
         onb_scores = []
@@ -210,7 +217,7 @@ def predict_aggregate_endpoint(filters: AggregateFilters):
         shap_dict = result.get('shap_values', {})
         
         # Format SHAP for frontend (list of {name, value})
-        shap_list = [{"name": k, "value": v} for k, v in shap_dict.items()]
+        shap_list = [{"feature": k, "value": v, "base_value": 0.0} for k, v in shap_dict.items()]
         shap_list.sort(key=lambda x: abs(x['value']), reverse=True)
         # Take top 5 for aggregate view? or all? Let's send top 10
         shap_list = shap_list[:10]
@@ -219,7 +226,8 @@ def predict_aggregate_endpoint(filters: AggregateFilters):
             "predicted_turnover_count": count,
             "total_in_cohort": len(filtered_df),
             "cohort_risk_rate": (count / len(filtered_df)) * 100 if len(filtered_df) > 0 else 0,
-            "shap_values": shap_list
+            "shap_values": shap_list,
+            "contributions": shap_list
         }
 
     except FileNotFoundError:
@@ -268,6 +276,7 @@ def get_dashboard_data_endpoint():
                     "avg_satisfaction": round(avg_satisfaction, 1)
                 },
                 "shap_values": metrics_result['shap_values'],
+                "grouped_shap": metrics_result.get('grouped_shap', []),
                 "predictions": metrics_result['predictions'],
                 "feature_importance": metrics_result['feature_importance'],
                 "turnover_analysis": turnover_analysis

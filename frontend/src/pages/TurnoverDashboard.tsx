@@ -4,13 +4,15 @@ import { motion } from 'motion/react';
 import { RefreshCw, Users, TrendingUp, AlertTriangle, Smile } from 'lucide-react';
 import { Sidebar } from '@/layout/Sidebar';
 import { NavBar } from '@/layout/NavBar';
-import { ShapChart } from '@/features/analytics/ShapChart';
+import { ContributionChart } from '../features/analytics/ContributionChart';
 import { FeatureImportance } from '@/features/analytics/FeatureImportance';
 import { PredictionResults } from '@/features/turnover/PredictionResults';
 import { MetricsOverview } from '@/components/MetricsOverview';
 import { TurnoverPrediction } from '@/features/turnover/TurnoverPrediction';
 import { getMockData } from '@/utils/mockData';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+
+// Force rebuild for fixed import
 
 interface DashboardProps {
   apiEndpoint: string;
@@ -122,7 +124,7 @@ export function Dashboard({ apiEndpoint }: DashboardProps) {
               <h2 className="text-xl font-medium">Global Risk Drivers</h2>
             </div>
             <div className="bg-card p-4 rounded-xl border border-border shadow-sm">
-              <ShapChart data={data.shap_values} />
+              <ContributionChart data={data.contributions || data.shap_values} />
             </div>
           </div>
 

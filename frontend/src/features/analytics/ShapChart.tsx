@@ -4,7 +4,8 @@ import { motion } from 'motion/react';
 interface ShapValue {
   feature: string;
   value: number;
-  base_value: number;
+  base_value?: number;
+  formatted_value?: string;
 }
 
 interface ShapChartProps {
@@ -26,7 +27,7 @@ export function ShapChart({ data }: ShapChartProps) {
         <BarChart
           data={sortedData}
           layout="vertical"
-          margin={{ top: 5, right: 40, left: 140, bottom: 5 }}
+          margin={{ top: 5, right: 40, left: 180, bottom: 5 }}
         >
           <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={true} vertical={false} />
           <XAxis

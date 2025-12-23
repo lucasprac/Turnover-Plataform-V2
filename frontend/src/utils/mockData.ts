@@ -21,6 +21,20 @@ export function getMockData() {
       { feature: 'Treinamentos Concluídos', value: -0.043, base_value: 0.5 },
       { feature: 'Relação com Gestor', value: -0.038, base_value: 0.5 }
     ],
+    contributions: [
+      { feature: 'Tempo de Empresa', value: 0.245, base_value: 0.5 },
+      { feature: 'Satisfação no Trabalho', value: -0.189, base_value: 0.5 },
+      { feature: 'Salário', value: -0.156, base_value: 0.5 },
+      { feature: 'Horas Trabalhadas/Semana', value: 0.134, base_value: 0.5 },
+      { feature: 'Promoções (últimos 5 anos)', value: -0.112, base_value: 0.5 },
+      { feature: 'Distância de Casa', value: 0.098, base_value: 0.5 },
+      { feature: 'Nível de Responsabilidade', value: -0.087, base_value: 0.5 },
+      { feature: 'Idade', value: -0.076, base_value: 0.5 },
+      { feature: 'Equilíbrio Vida/Trabalho', value: -0.065, base_value: 0.5 },
+      { feature: 'Performance Rating', value: -0.054, base_value: 0.5 },
+      { feature: 'Treinamentos Concluídos', value: -0.043, base_value: 0.5 },
+      { feature: 'Relação com Gestor', value: -0.038, base_value: 0.5 }
+    ],
     feature_importance: [
       { feature: 'Tempo de Empresa', importance: 0.18 },
       { feature: 'Satisfação no Trabalho', importance: 0.16 },

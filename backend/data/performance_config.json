@@ -1,0 +1,19 @@
+[
+    {
+        "name": "1 Trimestre",
+        "inputs": [
+            "B10_Tenure_in_month",
+            "B11_salary_today_brl",
+            "b1_PDI_rate"
+        ],
+        "outputs": [
+            "c1_overall_employee_satisfaction",
+            "M_eNPS",
+            "B9_salary_increase_last_year"
+        ],
+        "org_obj": 0.8,
+        "personal_obj": 1,
+        "mgmt_obj": 0.8,
+        "timestamp": "2025-12-19T22:17:08.250Z"
+    }
+]

@@ -11,7 +11,7 @@ root_dir = os.path.dirname(current_dir)
 if root_dir not in sys.path:
     sys.path.append(root_dir)
 
-from backend.app.routers import employees, predictions, motivation
+from backend.app.routers import employees, predictions, motivation, performance
 
 app = FastAPI(title="Turnover Prediction API")
 
@@ -28,6 +28,7 @@ app.add_middleware(
 app.include_router(employees.router, tags=["Employees"])
 app.include_router(predictions.router, tags=["Predictions"])
 app.include_router(motivation.router, tags=["Motivation"])
+app.include_router(performance.router, tags=["Performance"])
 
 @app.get("/")
 def read_root():

@@ -4,7 +4,7 @@ import numpy as np
 import xgboost as xgb
 import joblib
 import os
-from sklearn.model_selection import KFold, RandomizedSearchCV
+from sklearn.model_selection import KFold, RandomizedSearchCV, train_test_split
 from sklearn.feature_selection import SelectFromModel
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
@@ -12,7 +12,9 @@ from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 
 from .preprocessing import aggregate_data_for_5year
-# import shap (Moved to local scope)
+from shapash import SmartExplainer
+from shapash.utils.load_smartpredictor import load_smartpredictor
+from . import shapash_config
 
 # Models are in backend/ml
 
@@ -21,7 +23,8 @@ import sys
 
 # Ensure root is in path if not already
 current_dir = os.path.dirname(os.path.abspath(__file__))
-root_dir = os.path.dirname(os.path.dirname(current_dir))
+# Note: In production/actual structure, we might need more careful path management
+root_dir = os.getcwd() 
 if root_dir not in sys.path:
     sys.path.append(root_dir)
 
@@ -100,20 +103,31 @@ def train_five_year_model(data_path="synthetic_turnover_data.csv", save_model=Tr
     selector = SelectFromModel(selection_model, threshold='median', prefit=True)
     X_selected = selector.transform(X_processed)
     
+    mask = selector.get_support()
+    feature_names_selected = [name for name, selected in zip(feature_names_out, mask) if selected]
+    
     print(f"Selected Feature Count: {X_selected.shape[1]}")
     update(40, "Features selected")
 
     # 4. Hyperparameter Tuning (CV)
+    # Using a 20% test split even for small aggregated data to ensure some validation
+    X_train_vals, X_test_vals, y_train, y_test = train_test_split(X_selected, y, test_size=0.2, random_state=42)
+    
+    # Prepare DataFrames for fitting to preserve feature names
+    X_train = pd.DataFrame(X_train_vals, columns=feature_names_selected)
+    X_test = pd.DataFrame(X_test_vals, columns=feature_names_selected)
+
+    print(f"Split Count -> Train: {X_train.shape[0]} | Test: {X_test.shape[0]}")
     print("Starting Hyperparameter Optimization...")
     update(50, "Optimizing hyperparameters...")
     params = {
         'learning_rate': [0.01, 0.05, 0.1],
-        'max_depth': [3, 4, 5],
+        'max_depth': [2, 3], # Option 1: Strictly reduced complexity
         'n_estimators': [100, 200, 300],
         'subsample': [0.7, 0.9],
         'colsample_bytree': [0.7, 0.9],
-        'reg_alpha': [0, 0.1, 1],
-        'reg_lambda': [1, 2]
+        'reg_alpha': [0, 0.1, 1], # Moderate L1
+        'reg_lambda': [1, 2] # Moderate L2
     }
     
     cv = KFold(n_splits=5, shuffle=True, random_state=42)
@@ -129,22 +143,34 @@ def train_five_year_model(data_path="synthetic_turnover_data.csv", save_model=Tr
         n_jobs=1
     )
     
-    search.fit(X_selected, y)
+    search.fit(X_train, y_train)
     
-    print(f"Best MAE: {-search.best_score_:.4f}")
+    print(f"Best CV MAE: {-search.best_score_:.4f}")
     
     final_model = search.best_estimator_
     update(80, "Model optimized")
     
-    # 5. Evaluation (On full set for now as data is small)
-    y_pred = final_model.predict(X_selected)
-    mae = mean_absolute_error(y, y_pred)
-    rmse = np.sqrt(mean_squared_error(y, y_pred))
-    r2 = r2_score(y, y_pred)
+    # 5. Evaluation
+    y_pred_train = final_model.predict(X_train)
+    y_pred_test = final_model.predict(X_test)
     
-    print(f"Final Training MAE: {mae:.2f}")
-    print(f"Final Training RMSE: {rmse:.2f}")
-    print(f"Final Training R2: {r2:.4f}")
+    mae_train = mean_absolute_error(y_train, y_pred_train)
+    mae_test = mean_absolute_error(y_test, y_pred_test)
+    rmse_train = np.sqrt(mean_squared_error(y_train, y_pred_train))
+    rmse_test = np.sqrt(mean_squared_error(y_test, y_pred_test))
+    r2_train = r2_score(y_train, y_pred_train)
+    r2_test = r2_score(y_test, y_pred_test)
+    
+    print("\n--- Overfitting Check (Train vs Test) ---")
+    print(f"MAE  -> Train: {mae_train:.2f} | Test: {mae_test:.2f} (Gap: {abs(mae_train - mae_test):.2f})")
+    print(f"RMSE -> Train: {rmse_train:.2f} | Test: {rmse_test:.2f}")
+    print(f"R2   -> Train: {r2_train:.4f} | Test: {r2_test:.4f}")
+    
+    if r2_train > 0.9 and r2_test < 0.6:
+        print("WARNING: Large R2 Gap detected. Model may be OVERTUNNED (Overfitting).")
+    else:
+        print("Model consistency looks good.")
+
     update(90, "Model evaluated")
 
     if save_model:
@@ -152,10 +178,58 @@ def train_five_year_model(data_path="synthetic_turnover_data.csv", save_model=Tr
             'model': final_model,
             'preprocessor': preprocessor,
             'selector': selector,
-            'feature_names': feature_names_out # Raw names
+            'feature_names': feature_names_selected # Selected names
         }
         joblib.dump(artifact, MODEL_PATH)
         print(f"Model saved to {MODEL_PATH}")
+
+        # --- Shapash Integration ---
+        print("\nCreating Shapash SmartPredictor for 5-Year Model...")
+        try:
+            X_test_df = X_test
+
+            # Filter Postprocessing to only include existing columns
+            valid_postprocessing = {
+                k: v for k, v in shapash_config.POSTPROCESSING.items() 
+                if k in X_test_df.columns
+            }
+            
+            # Filter Features Groups to only include existing columns
+            valid_groups = {}
+            for g_name, g_cols in shapash_config.FEATURES_GROUPS.items():
+                existing_cols = [c for c in g_cols if c in X_test_df.columns]
+                if existing_cols:
+                    valid_groups[g_name] = existing_cols
+
+            # Filter features_dict
+            valid_features_dict = {col: shapash_config.FEATURES_DICT.get(col, col) for col in X_test_df.columns}
+
+            print(f"DEBUG: Model features: {getattr(final_model, 'n_features_in_', 'N/A')}")
+            print(f"DEBUG: X_test_df columns: {len(X_test_df.columns)}")
+            print(f"DEBUG: valid_features_dict items: {len(valid_features_dict)}")
+            
+            xpl = SmartExplainer(
+                model=final_model,
+                features_dict=valid_features_dict,
+                postprocessing=valid_postprocessing,
+                features_groups=valid_groups
+            )
+            # Ensure y_pred matches X_test_df indices
+            y_pred_series = pd.Series(y_pred_test, name='ypred', index=X_test_df.index)
+            
+            # Regressor doesn't need label_dict as much, but we can pass it if relevant
+            # Use explainers that are more robust if possible
+            xpl.compile(x=X_test_df, y_pred=y_pred_series)
+            
+            predictor = xpl.to_smartpredictor()
+            predictor_path = os.path.join(current_dir, "five_year_predictor.pkl")
+            predictor.save(predictor_path)
+            print(f"5-Year SmartPredictor saved successfully to {predictor_path}")
+
+        except Exception as e:
+            print(f"Error creating/saving 5-Year Shapash predictor: {e}")
+            import traceback
+            traceback.print_exc()
     
     update(100, "Five Year Model Complete")
     return final_model
@@ -189,45 +263,45 @@ def predict_aggregate_turnover(agg_data: dict):
         X_final = selector.transform(X_processed)
         prediction = model.predict(X_final)[0]
         
-        # Calculate SHAP values
+        # --- Shapash Prediction & explanation ---
+        predictor_path = os.path.join(current_dir, "five_year_predictor.pkl")
         shap_dict = {}
-        try:
-            import shap
-            explainer = shap.TreeExplainer(model)
-            shap_values = explainer.shap_values(X_final)
+
+        if os.path.exists(predictor_path):
+            predictor = load_smartpredictor(predictor_path)
             
-            # Map to feature names if available
-            # X_final corresponds to selector output.
-            # We need feature names for X_final.
-            
-            # Get feature names from preprocessor -> selector
-            feature_names_in = []
-            if hasattr(preprocessor, 'get_feature_names_out'):
-                 feature_names_in = preprocessor.get_feature_names_out()
-            else:
-                 feature_names_in = [f"feat_{i}" for i in range(X_processed.shape[1])]
-                 
-            # Selector mask
-            mask = selector.get_support()
-            final_feature_names = [name for name, selected in zip(feature_names_in, mask) if selected]
-            
-            # SHAP values for the single row
-            # shap_values is (1, n_features) or list of arrays (if multi-output, but this is regression)
-            # For regression XGBoost, it is usually (n_samples, n_features)
-            
-            row_shap = shap_values[0]
-            
-            if len(row_shap) == len(final_feature_names):
-                for name, val in zip(final_feature_names, row_shap):
-                    shap_dict[name] = float(val)
-            else:
-                 # Fallback if names don't match
-                 for i, val in enumerate(row_shap):
-                     shap_dict[f"feature_{i}"] = float(val)
-                     
-        except Exception as e:
-            print(f"SHAP Aggregate Error: {e}")
-            shap_dict = {}
+            # Align features
+            if hasattr(predictor, 'features_types'):
+                required_cols = list(predictor.features_types.keys())
+                X_final_df = pd.DataFrame(X_final, columns=artifact['feature_names'])
+                for c in required_cols:
+                    if c not in X_final_df.columns:
+                        X_final_df[c] = 0.0
+                X_final_df = X_final_df[required_cols]
+                
+                # Patch types to float64
+                patch_types = {col: 'float64' for col in predictor.features_types.keys()}
+                predictor.features_types = patch_types
+                for col in X_final_df.columns:
+                    X_final_df[col] = X_final_df[col].astype(float)
+
+                predictor.add_input(x=X_final_df)
+                contributions = predictor.detail_contributions()
+                raw_dict = contributions.iloc[0].to_dict()
+
+                # Clean and transform contributions
+                for k, v in raw_dict.items():
+                    try:
+                        if isinstance(v, str):
+                            import re
+                            match = re.search(r"[-+]?\d*\.\d+|\d+", v)
+                            shap_dict[k] = float(match.group()) if match else 0.0
+                        else:
+                            shap_dict[k] = float(v)
+                    except:
+                        shap_dict[k] = 0.0
+        else:
+            print(f"WARNING: 5-Year Predictor not found at {predictor_path}")
 
         return {
             "prediction": max(0, float(prediction)),
@@ -236,7 +310,8 @@ def predict_aggregate_turnover(agg_data: dict):
         
     except Exception as e:
         print(f"Aggregate predict error: {e}")
-        # Fallback logic if needed?
+        import traceback
+        traceback.print_exc()
         return {
             "prediction": 0.0,
             "shap_values": {}

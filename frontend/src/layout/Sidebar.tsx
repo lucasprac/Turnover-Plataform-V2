@@ -82,6 +82,18 @@ export const Sidebar: React.FC = () => {
                         <LayoutDashboard className="w-4 h-4" />
                         Motivation
                     </Link>
+                    <Link
+                        to="/performance"
+                        className={cn(
+                            "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                            isActive('/performance')
+                                ? "bg-secondary text-primary"
+                                : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
+                        )}
+                    >
+                        <Zap className="w-4 h-4" />
+                        Performance
+                    </Link>
                 </nav>
             </div>
 

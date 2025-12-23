@@ -28,7 +28,8 @@ class TurnoverPreprocessor(BaseEstimator, TransformerMixin):
             'B1_commute_distance_in_km', 'B3_early_retirement_rate', 'B4_sickness_days', 'B5_Degree_of_employment', 
             'B6_gross_working_days', 'B7_Vacation_days', 'B8_net_working_days', 'B9_salary_increase_last_year', 
             'B10_Tenure_in_month', 'B11_salary_today_brl', 'B12_salary_increase_last_5_years', 'B13_Parental_leave', 
-            'D1_monthly_unemployment_rate_brazil', 'D2_monthly_number_of_vacancies', 'D3_monthly_short_time_workers'
+            'D1_monthly_unemployment_rate_brazil', 'D2_monthly_number_of_vacancies', 'D3_monthly_short_time_workers',
+            'b1_PDI_rate'
         ]
         
         middle_num = [c for c in X.columns if c.startswith('M_') or c.startswith('Climate_')]
@@ -152,7 +153,8 @@ def aggregate_data_for_5year(df):
         'c1_overall_employee_satisfaction': 'mean',
         'B5_Degree_of_employment': 'mean',
         'M_Onboarding_Final_Score': 'mean',
-        'M_eNPS': 'mean'
+        'M_eNPS': 'mean',
+        'b1_PDI_rate': 'mean'
     }
     
     stats = df.groupby(group_cols, observed=False).agg(
@@ -162,7 +164,8 @@ def aggregate_data_for_5year(df):
         c1_overall_employee_satisfaction=('c1_overall_employee_satisfaction', 'mean'),
         B5_Degree_of_employment=('B5_Degree_of_employment', 'mean'),
         M_Onboarding_Final_Score=('M_Onboarding_Final_Score', 'mean'),
-        M_eNPS=('M_eNPS', 'mean')
+        M_eNPS=('M_eNPS', 'mean'),
+        b1_PDI_rate=('b1_PDI_rate', 'mean')
     ).reset_index()
     
     stats = stats[stats['TotalEmployees'] > 0]

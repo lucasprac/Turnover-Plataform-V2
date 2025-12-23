@@ -145,9 +145,7 @@ def generate_synthetic_data(n_employees=1500, seed=42):
         c1_sat = int(true_satisfaction)
         c2_ma = round(true_satisfaction + np.random.normal(0, 0.2), 2)
 
-        # ==========================================
         # TARGET & END VARIETS
-        # ==========================================
         
         # Turnover Calculation
         score = 0
@@ -200,6 +198,7 @@ def generate_synthetic_data(n_employees=1500, seed=42):
             'B14_Cargo': cargo,
             'B15_Sector': sector,
             'B16_Headquarters': hq,
+            'b1_PDI_rate': round(np.random.beta(5, 2), 2), # Skewed towards higher rates (0-1)
             
             # Middle
             'c1_overall_employee_satisfaction': c1_sat, # Legacy/Current

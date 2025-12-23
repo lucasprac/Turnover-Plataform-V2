@@ -5,12 +5,15 @@ import '@/global.css';
 import axios from 'axios';
 import { IndividualPrediction } from '@/types';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid } from 'recharts';
+import { ContributionChart } from '../features/analytics/ContributionChart';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+// Force rebuild for fixed import
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Search, Loader2 } from 'lucide-react';
+import { Search, Loader2, User, Activity } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface EmployeeSummary {
     id: string;
@@ -28,6 +31,7 @@ export const IndividualPage = () => {
     const [employeeDetails, setEmployeeDetails] = useState<any>(null);
     const [prediction, setPrediction] = useState<IndividualPrediction | null>(null);
     const [analyzing, setAnalyzing] = useState(false);
+    const [showGrouped, setShowGrouped] = useState(false);
 
     // Fetch employees on search
     useEffect(() => {
@@ -70,7 +74,11 @@ export const IndividualPage = () => {
         }
     };
 
-    const shapData = prediction ? prediction.shap_values : [];
+    const contributionData = prediction
+        ? (showGrouped && prediction.grouped_contributions && prediction.grouped_contributions.length > 0
+            ? prediction.grouped_contributions
+            : (prediction.contributions || prediction.shap_values))
+        : [];
 
     return (
         <div className="flex bg-background min-h-screen font-sans text-foreground">
@@ -119,108 +127,172 @@ export const IndividualPage = () => {
                         </Card>
                     </div>
 
-                    {/* Middle Column: Details (Read Only) */}
-                    <div className="lg:col-span-5 flex flex-col">
-                        <Card className="h-full overflow-hidden flex flex-col">
-                            <CardHeader className="pb-3 border-b">
-                                <CardTitle>Profile Details</CardTitle>
-                                <CardDescription>
-                                    {selectedEmployeeId ? `Viewing ${selectedEmployeeId}` : 'Select an employee'}
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent className="flex-1 overflow-auto p-6">
-                                {analyzing ? (
-                                    <div className="h-full flex items-center justify-center">
-                                        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                                    </div>
-                                ) : employeeDetails ? (
-                                    <div className="space-y-6">
-                                        <div>
-                                            <h4 className="text-sm font-semibold text-primary mb-3 uppercase tracking-wider border-b pb-1">Demographics</h4>
-                                            <div className="grid grid-cols-2 gap-4 text-sm">
-                                                <div><span className="text-muted-foreground block">Age</span> {employeeDetails.a2_age}</div>
-                                                <div><span className="text-muted-foreground block">Gender</span> {employeeDetails.a1_gender}</div>
-                                                <div><span className="text-muted-foreground block">Education</span> {employeeDetails.a6_education_level}</div>
-                                                <div><span className="text-muted-foreground block">Children</span> {employeeDetails.a3_number_of_children}</div>
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <h4 className="text-sm font-semibold text-primary mb-3 uppercase tracking-wider border-b pb-1">Work</h4>
-                                            <div className="grid grid-cols-2 gap-4 text-sm">
-                                                <div><span className="text-muted-foreground block">Salary</span> R$ {employeeDetails.B11_salary_today_brl}</div>
-                                                <div><span className="text-muted-foreground block">Tenure</span> {employeeDetails.B10_Tenure_in_month} months</div>
-                                                <div><span className="text-muted-foreground block">Role</span> {employeeDetails.B14_Cargo || 'N/A'}</div>
-                                                <div><span className="text-muted-foreground block">Sector</span> {employeeDetails.B15_Sector || 'N/A'}</div>
-                                                <div><span className="text-muted-foreground block">Headquarters</span> {employeeDetails.B16_Headquarters || 'N/A'}</div>
-                                                <div><span className="text-muted-foreground block">Commute</span> {employeeDetails.B1_commute_distance_in_km} km</div>
-                                                <div><span className="text-muted-foreground block">Sickness Days</span> {employeeDetails.B4_sickness_days}</div>
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <h4 className="text-sm font-semibold text-primary mb-3 uppercase tracking-wider border-b pb-1">Survey Scores</h4>
-                                            <div className="grid grid-cols-2 gap-4 text-sm">
-                                                <div><span className="text-muted-foreground block">Satisfaction</span> {employeeDetails.c1_overall_employee_satisfaction}/10</div>
-                                                <div><span className="text-muted-foreground block">eNPS</span> {employeeDetails.M_eNPS}/10</div>
-                                                <div className="col-span-2"><span className="text-muted-foreground block">Onboarding Final</span> {employeeDetails.M_Onboarding_Final_Score ? employeeDetails.M_Onboarding_Final_Score.toFixed(1) : 'N/A'}</div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
-                                        Select an employee from the list to view details.
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-                    </div>
-
-                    {/* Right Column: Prediction Results */}
-                    <div className="lg:col-span-4 flex flex-col gap-4">
-                        {prediction ? (
-                            <>
-                                <Card className={`text-center py-6 transition-colors ${prediction.turnover_probability > 0.5 ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
-                                    <CardHeader className="pb-2">
-                                        <CardTitle className="text-lg">Turnover Risk</CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className={`text-5xl font-black ${prediction.turnover_probability > 0.5 ? 'text-red-600' : 'text-green-600'}`}>
-                                            {(prediction.turnover_probability * 100).toFixed(1)}%
-                                        </div>
-                                        <div className="mt-2 font-semibold text-base">
-                                            {prediction.turnover_probability > 0.5 ? 'High Risk' : 'Low Risk'}
-                                        </div>
-                                    </CardContent>
-                                </Card>
-
-                                <Card className="flex-1 flex flex-col">
-                                    <CardHeader className="pb-2">
-                                        <CardTitle className="text-lg">Top Drivers</CardTitle>
-                                        <CardDescription>Key factors (SHAP)</CardDescription>
-                                    </CardHeader>
-                                    <CardContent className="flex-1 min-h-[200px]">
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <BarChart data={shapData} layout="vertical" margin={{ left: 5, right: 30 }}>
-                                                <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#e5e7eb" />
-                                                <XAxis type="number" hide />
-                                                <YAxis dataKey="name" type="category" width={90} tick={{ fontSize: 9, fill: '#6b7280' }} />
-                                                <Tooltip
-                                                    contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '12px' }}
-                                                    cursor={{ fill: '#f3f4f6' }}
-                                                />
-                                                <Bar dataKey="value" name="Impact" radius={[0, 4, 4, 0]}>
-                                                    {shapData.map((entry, index) => (
-                                                        <Cell key={`cell-${index}`} fill={entry.value > 0 ? '#f472b6' : '#818cf8'} />
-                                                    ))}
-                                                </Bar>
-                                            </BarChart>
-                                        </ResponsiveContainer>
-                                    </CardContent>
-                                </Card>
-                            </>
-                        ) : (
-                            <Card className="flex-1 flex items-center justify-center p-8 text-center text-muted-foreground border-dashed">
-                                <p className="text-sm">Risk analysis will appear here after selection.</p>
+                    {/* Main Content: Profile & Risk */}
+                    <div className="lg:col-span-9 flex flex-col h-[calc(100vh-12rem)]">
+                        {!selectedEmployeeId ? (
+                            <Card className="h-full flex flex-col items-center justify-center p-8 text-center border-dashed">
+                                <div className="p-4 bg-muted/30 rounded-full mb-4">
+                                    <Search className="w-8 h-8 text-muted-foreground" />
+                                </div>
+                                <h3 className="text-lg font-semibold text-foreground">No Employee Selected</h3>
+                                <p className="text-muted-foreground text-sm max-w-xs mt-2">
+                                    Search and select an employee from the list to view their detailed profile and risk analysis.
+                                </p>
                             </Card>
+                        ) : (
+                            <Tabs defaultValue="profile" className="flex flex-col h-full overflow-hidden">
+                                <div className="flex-none mb-4">
+                                    <TabsList className="grid w-[400px] grid-cols-2">
+                                        <TabsTrigger value="profile">
+                                            <User className="mr-2 h-4 w-4" />
+                                            Profile Details
+                                        </TabsTrigger>
+                                        <TabsTrigger value="risk">
+                                            <Activity className="mr-2 h-4 w-4" />
+                                            Risk Analysis
+                                        </TabsTrigger>
+                                    </TabsList>
+                                </div>
+
+                                <div className="flex-1 overflow-hidden min-h-0">
+                                    <TabsContent value="profile" className="h-full mt-0 overflow-y-auto pr-2">
+                                        <Card className="mb-6">
+                                            <CardHeader className="pb-3 border-b">
+                                                <CardTitle>Employee Profile</CardTitle>
+                                                <CardDescription>
+                                                    Detailed information for {selectedEmployeeId}
+                                                </CardDescription>
+                                            </CardHeader>
+                                            <CardContent className="p-6">
+                                                {analyzing ? (
+                                                    <div className="flex items-center justify-center p-12">
+                                                        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                                                        <span className="ml-3 text-sm text-muted-foreground">Loading profile data...</span>
+                                                    </div>
+                                                ) : employeeDetails ? (
+                                                    <div className="space-y-8">
+                                                        <div>
+                                                            <h4 className="text-xs font-semibold text-primary mb-4 uppercase tracking-wider flex items-center gap-2">
+                                                                <div className="w-1 h-3 bg-primary rounded-full" />
+                                                                Demographics
+                                                            </h4>
+                                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-sm bg-muted/20 p-4 rounded-lg">
+                                                                <div><span className="text-muted-foreground block text-xs mb-1">Age</span> <span className="font-medium">{employeeDetails.a2_age}</span></div>
+                                                                <div><span className="text-muted-foreground block text-xs mb-1">Gender</span> <span className="font-medium">{employeeDetails.a1_gender}</span></div>
+                                                                <div><span className="text-muted-foreground block text-xs mb-1">Education</span> <span className="font-medium">{employeeDetails.a6_education_level}</span></div>
+                                                                <div><span className="text-muted-foreground block text-xs mb-1">Children</span> <span className="font-medium">{employeeDetails.a3_number_of_children}</span></div>
+                                                            </div>
+                                                        </div>
+                                                        <div>
+                                                            <h4 className="text-xs font-semibold text-primary mb-4 uppercase tracking-wider flex items-center gap-2">
+                                                                <div className="w-1 h-3 bg-primary rounded-full" />
+                                                                Professional Info
+                                                            </h4>
+                                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-sm bg-muted/20 p-4 rounded-lg">
+                                                                <div><span className="text-muted-foreground block text-xs mb-1">Salary</span> <span className="font-medium">R$ {employeeDetails.B11_salary_today_brl}</span></div>
+                                                                <div><span className="text-muted-foreground block text-xs mb-1">Tenure</span> <span className="font-medium">{employeeDetails.B10_Tenure_in_month} months</span></div>
+                                                                <div><span className="text-muted-foreground block text-xs mb-1">Role</span> <span className="font-medium">{employeeDetails.B14_Cargo || 'N/A'}</span></div>
+                                                                <div><span className="text-muted-foreground block text-xs mb-1">Sector</span> <span className="font-medium">{employeeDetails.B15_Sector || 'N/A'}</span></div>
+                                                                <div><span className="text-muted-foreground block text-xs mb-1">Headquarters</span> <span className="font-medium">{employeeDetails.B16_Headquarters || 'N/A'}</span></div>
+                                                                <div><span className="text-muted-foreground block text-xs mb-1">Commute</span> <span className="font-medium">{employeeDetails.B1_commute_distance_in_km} km</span></div>
+                                                                <div><span className="text-muted-foreground block text-xs mb-1">Sickness Days</span> <span className="font-medium">{employeeDetails.B4_sickness_days}</span></div>
+                                                                <div><span className="text-muted-foreground block text-xs mb-1">Gross Working Days</span> <span className="font-medium">{employeeDetails.B6_gross_working_days}</span></div>
+                                                            </div>
+                                                        </div>
+                                                        <div>
+                                                            <h4 className="text-xs font-semibold text-primary mb-4 uppercase tracking-wider flex items-center gap-2">
+                                                                <div className="w-1 h-3 bg-primary rounded-full" />
+                                                                Performance & Satisfaction
+                                                            </h4>
+                                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-sm bg-muted/20 p-4 rounded-lg">
+                                                                <div><span className="text-muted-foreground block text-xs mb-1">Satisfaction</span> <span className="font-medium">{employeeDetails.c1_overall_employee_satisfaction}/10</span></div>
+                                                                <div><span className="text-muted-foreground block text-xs mb-1">eNPS</span> <span className="font-medium">{employeeDetails.M_eNPS}/10</span></div>
+                                                                <div><span className="text-muted-foreground block text-xs mb-1">PDI Rate</span> <span className="font-medium">{(employeeDetails.b1_PDI_rate * 100).toFixed(0)}%</span></div>
+                                                                <div><span className="text-muted-foreground block text-xs mb-1">Onboarding Score</span> <span className="font-medium">{employeeDetails.M_Onboarding_Final_Score ? employeeDetails.M_Onboarding_Final_Score.toFixed(1) : 'N/A'}</span></div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-center text-muted-foreground p-8">
+                                                        No details available.
+                                                    </div>
+                                                )}
+                                            </CardContent>
+                                        </Card>
+                                    </TabsContent>
+
+                                    <TabsContent value="risk" className="h-full mt-0 flex flex-col gap-6 overflow-hidden">
+                                        {analyzing ? (
+                                            <div className="h-full flex items-center justify-center p-12 bg-muted/10 rounded-lg border border-dashed">
+                                                <div className="text-center">
+                                                    <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
+                                                    <p className="text-sm font-medium">Running prediction models...</p>
+                                                    <p className="text-xs text-muted-foreground">Calculating turnover probability and contributing factors</p>
+                                                </div>
+                                            </div>
+                                        ) : prediction ? (
+                                            <>
+                                                {/* Risk Score */}
+                                                <div className="flex-none">
+                                                    <Card className={`text-center p-6 transition-colors border-2 ${prediction.turnover_probability > 0.5 ? 'bg-red-50/50 border-red-100' : 'bg-emerald-50/50 border-emerald-100'}`}>
+                                                        <div className="flex flex-row items-center justify-around px-4">
+                                                            <div className="text-left">
+                                                                <CardTitle className="text-lg font-bold text-foreground">Turnover Probability</CardTitle>
+                                                                <CardDescription>Model confidence in attrition event within 1 year</CardDescription>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <div className={`text-5xl font-black ${prediction.turnover_probability > 0.5 ? 'text-red-600' : 'text-emerald-600'}`}>
+                                                                    {(prediction.turnover_probability * 100).toFixed(1)}%
+                                                                </div>
+                                                                <div className={`font-bold text-sm mt-1 uppercase tracking-wide px-3 py-1 rounded-full inline-block ${prediction.turnover_probability > 0.5 ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                                                                    {prediction.turnover_probability > 0.5 ? 'High Risk' : 'Low Risk'}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </Card>
+                                                </div>
+
+                                                {/* Top Drivers Chart */}
+                                                <div className="flex-1 min-h-[400px] overflow-hidden">
+                                                    <Card className="h-full flex flex-col shadow-sm">
+                                                        <CardHeader className="pb-2 flex flex-row items-center justify-between border-b flex-none">
+                                                            <div className="space-y-1">
+                                                                <CardTitle className="text-base font-semibold">Key Risk Drivers</CardTitle>
+                                                                <CardDescription className="text-xs">Feature contribution analysis (Shapash)</CardDescription>
+                                                            </div>
+                                                            {prediction.grouped_contributions && prediction.grouped_contributions.length > 0 && (
+                                                                <div className="flex bg-muted rounded-md p-0.5">
+                                                                    <button
+                                                                        onClick={() => setShowGrouped(false)}
+                                                                        className={`px-3 py-1.5 text-xs font-medium rounded-sm transition-all ${!showGrouped ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                                                                    >
+                                                                        Detailed
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => setShowGrouped(true)}
+                                                                        className={`px-3 py-1.5 text-xs font-medium rounded-sm transition-all ${showGrouped ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                                                                    >
+                                                                        Grouped
+                                                                    </button>
+                                                                </div>
+                                                            )}
+                                                        </CardHeader>
+                                                        <CardContent className="flex-1 p-0 relative min-h-[300px]">
+                                                            <div className="absolute inset-0 p-2">
+                                                                <ContributionChart data={contributionData} />
+                                                            </div>
+                                                        </CardContent>
+                                                    </Card>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <Card className="h-full flex items-center justify-center p-8 text-center text-muted-foreground border-dashed">
+                                                <p className="text-sm">Risk analysis data not available.</p>
+                                            </Card>
+                                        )}
+                                    </TabsContent>
+                                </div>
+                            </Tabs>
                         )}
                     </div>
                 </div>

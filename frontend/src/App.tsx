@@ -5,6 +5,7 @@ import { IndividualPage } from './pages/IndividualPage';
 import { AggregatePage } from './pages/AggregatePage';
 import { SettingsPage } from './pages/SettingsPage';
 import { MotivationPage } from './pages/MotivationPage';
+import { PerformancePage } from './pages/PerformancePage';
 
 export default function App() {
     // Hardcoded endpoint for the internal application
@@ -18,6 +19,7 @@ export default function App() {
                 <Route path="/individual" element={<IndividualPage />} />
                 <Route path="/aggregate" element={<AggregatePage />} />
                 <Route path="/motivation" element={<MotivationPage />} />
+                <Route path="/performance" element={<PerformancePage />} />
                 <Route path="/settings" element={<SettingsPage />} />
             </Routes>
         </div>

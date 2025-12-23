@@ -59,6 +59,8 @@ export const AggregatePage = () => {
         ? (result.predicted_turnover_count / result.total_in_cohort) * 100
         : 0;
 
+    const contributions = result ? (result.contributions || result.shap_values || []) : [];
+
     return (
         <div className="flex bg-background min-h-screen font-sans text-foreground">
             <Sidebar />
@@ -169,6 +171,30 @@ export const AggregatePage = () => {
                                                 Predicted percentage of this cohort leaving within 5 years.
                                             </p>
                                         </div>
+
+                                        {contributions.length > 0 && (
+                                            <div className="pt-4 border-t border-border">
+                                                <h4 className="text-sm font-semibold mb-4 uppercase tracking-wider text-muted-foreground">Key Risk Drivers (Contribution)</h4>
+                                                <div className="space-y-3">
+                                                    {contributions.map((shap, idx) => (
+                                                        <div key={idx} className="flex items-center justify-between">
+                                                            <span className="text-sm font-light text-foreground">{shap.feature}</span>
+                                                            <div className="flex items-center gap-3 w-1/2">
+                                                                <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                                                                    <div
+                                                                        className={`h-full ${shap.value > 0 ? 'bg-destructive' : 'bg-emerald-500'}`}
+                                                                        style={{ width: `${Math.min(100, Math.abs(shap.value) * 100)}%` }}
+                                                                    />
+                                                                </div>
+                                                                <span className="text-xs font-mono w-8 text-right">
+                                                                    {shap.value > 0 ? '+' : ''}{shap.value.toFixed(2)}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </Card>
                             </div>

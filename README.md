@@ -67,7 +67,7 @@ python -m uvicorn backend.api:app --reload
 The API will start at `http://127.0.0.1:8000`.
 
 ### 2. Frontend Setup
-
+Rq
 Open a new terminal and navigate to the root directory (where `package.json` is located):
 
 ```bash
