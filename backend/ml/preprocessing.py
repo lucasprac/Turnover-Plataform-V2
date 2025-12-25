@@ -94,19 +94,6 @@ def load_and_preprocess_one_year(df):
     Orchestrates the full preprocessing flow for the One-Year Model.
     """
     # 1. Feature Engineering
-    # Defensive cleaning: Remove list brackets if present (fix for generator artifacts)
-    for col in df.columns:
-        if df[col].dtype == 'object':
-            # Check if any value is a stringified list like '[0.5]'
-            # DEBUG and Cleanup
-            if df[col].astype(str).str.contains(r'[\[\]]', regex=True).any():
-                 print(f"DEBUG: Found brackets in column {col}. Cleaning...")
-                 # Aggressive cleaning: replace brackets and quotes globally
-                 df[col] = df[col].astype(str).str.replace('[', '', regex=False).str.replace(']', '', regex=False).str.replace("'", '', regex=False).str.replace('"', '', regex=False)
-                 # Force numeric
-                 df[col] = pd.to_numeric(df[col], errors='coerce')
-                 print(f"DEBUG: Column {col} cleaned. Nulls: {df[col].isnull().sum()}")
-
     df = feature_engineering(df)
 
     # 2. Drop Leakage/Target
