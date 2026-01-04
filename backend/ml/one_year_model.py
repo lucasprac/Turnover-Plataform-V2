@@ -170,6 +170,7 @@ def train_one_year_model(data_path="synthetic_turnover_data.csv", save_model=Tru
         try:
             # Reconstruct DataFrames with selected features for Shapash
             X_test_df = pd.DataFrame(X_test_selected, columns=feature_names_selected)
+            X_test_df = X_test_df.astype(float)
             X_test_df.reset_index(drop=True, inplace=True)
             
             # Predict labels and conversion for Shapash
@@ -222,6 +223,15 @@ def train_one_year_model(data_path="synthetic_turnover_data.csv", save_model=Tru
                 print(f"DEBUG: y_pred_series shape: {y_pred_series.shape}")
                 xpl.compile(x=X_test_df, y_pred=y_pred_series)
                 predictor = xpl.to_smartpredictor()
+
+                # Enforce float64 for all features to prevent object inference issues
+                # This solves the issue at the source (saving) rather than loading
+                if hasattr(predictor, 'features_types'):
+                    patch_types = {}
+                    for col in predictor.features_types.keys():
+                        patch_types[col] = 'float64'
+                    predictor.features_types = patch_types
+
                 predictor.save("backend/ml/one_year_predictor.pkl")
                 print(f"SmartPredictor saved successfully ({suffix}).")
 
@@ -299,13 +309,7 @@ def predict_individual_risk(input_data: dict):
             X_final_df = X_final_df[required_cols]
             
             # Enforce Types
-            # FORCE FIX: Patch predictor expectation to float64 to match XGBoost/Transformed data reality
-            # This handles cases where Shapash incorrectly inferred 'object' types during compile
-            patch_types = {}
-            for col in predictor.features_types.keys():
-                patch_types[col] = 'float64'
-            predictor.features_types = patch_types
-            
+            # Ensure input is float64 to match predictor expectation
             for col in X_final_df.columns:
                 X_final_df[col] = X_final_df[col].astype(float)
 
