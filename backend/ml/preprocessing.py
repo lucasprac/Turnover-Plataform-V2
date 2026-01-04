@@ -5,6 +5,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.impute import SimpleImputer
+from sklearn.pipeline import Pipeline
 
 class TurnoverPreprocessor(BaseEstimator, TransformerMixin):
     def __init__(self):
@@ -42,7 +44,10 @@ class TurnoverPreprocessor(BaseEstimator, TransformerMixin):
         
         self.preprocessor = ColumnTransformer(
             transformers=[
-                ('num', StandardScaler(), self.numerical_features),
+                ('num', Pipeline(steps=[
+                    ('imputer', SimpleImputer(strategy='mean')),
+                    ('scaler', StandardScaler())
+                ]), self.numerical_features),
                 ('cat', OneHotEncoder(handle_unknown='ignore', sparse_output=False), self.categorical_features)
             ])
             
@@ -58,14 +63,7 @@ class TurnoverPreprocessor(BaseEstimator, TransformerMixin):
         if self.preprocessor is None:
             raise ValueError("Preprocessor has not been fitted yet.")
         
-        # Handle Missing Values (Mean Imputation for Numerical)
-        # Ideally this should be a SimpleImputer inside the pipeline, but we'll do quick fix here
-        X_copy = X.copy()
-        for col in self.numerical_features:
-            if col in X_copy.columns and X_copy[col].isnull().any():
-                 X_copy[col] = X_copy[col].fillna(X_copy[col].mean())
-                 
-        return self.preprocessor.transform(X_copy)
+        return self.preprocessor.transform(X)
 
     def get_feature_names(self):
         return self.feature_names
