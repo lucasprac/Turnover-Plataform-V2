@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.pkl
+*.xgb
+venv/
+.env
+.DS_Store
