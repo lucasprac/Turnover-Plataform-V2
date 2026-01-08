@@ -5,12 +5,11 @@ FROM node:20-slim AS frontend-builder
 
 WORKDIR /app
 
-# Copy package files and install dependencies
-COPY package*.json ./
+# Copy frontend source and its package.json
 COPY frontend/ ./frontend/
-COPY vite.config.ts ./
 
-# Install dependencies and build frontend
+# Install frontend dependencies and build
+WORKDIR /app/frontend
 RUN npm install && npm run build
 
 # =============================================================================
@@ -43,7 +42,7 @@ COPY config/ ./config/
 COPY synthetic_turnover_data.csv .
 
 # Copy built frontend from Stage 1
-COPY --from=frontend-builder /app/frontend/build ./static
+COPY --from=frontend-builder /app/frontend/dist ./static
 
 # Create directories for volumes
 RUN mkdir -p .data artifacts
