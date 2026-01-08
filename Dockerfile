@@ -1,16 +1,21 @@
 # =============================================================================
 # Stage 1: Build Frontend
 # =============================================================================
-FROM node:20-slim AS frontend-builder
+FROM node:20-alpine AS frontend-builder
 
-WORKDIR /app
-
-# Copy frontend source and its package.json
-COPY frontend/ ./frontend/
-
-# Install frontend dependencies and build
 WORKDIR /app/frontend
-RUN npm install && npm run build
+
+# Copy package files first for better caching
+COPY frontend/package*.json ./
+
+# Install dependencies
+RUN npm ci
+
+# Copy remaining frontend source
+COPY frontend/ ./
+
+# Build the frontend
+RUN npm run build
 
 # =============================================================================
 # Stage 2: Production with Python Backend
