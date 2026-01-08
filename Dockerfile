@@ -1,5 +1,5 @@
 # =============================================================================
-# Stage 1: Build Frontend with Node.js
+# Stage 1: Build Frontend
 # =============================================================================
 FROM node:20-slim AS frontend-builder
 
@@ -9,13 +9,12 @@ WORKDIR /app
 COPY package*.json ./
 COPY frontend/ ./frontend/
 COPY vite.config.ts ./
-COPY tsconfig*.json ./
 
 # Install dependencies and build frontend
 RUN npm install && npm run build
 
 # =============================================================================
-# Stage 2: Production with Python
+# Stage 2: Production with Python Backend
 # =============================================================================
 FROM python:3.11-slim
 
@@ -38,7 +37,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy backend application code
+# Copy necessary application code
 COPY backend/ ./backend/
 COPY config/ ./config/
 COPY synthetic_turnover_data.csv .

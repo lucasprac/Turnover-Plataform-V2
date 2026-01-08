@@ -1,15 +1,15 @@
 """
 Turnover Prediction API
 
-FastAPI application serving both the API and React frontend.
+FastAPI application that serves both the API and the React frontend.
 """
-from fastapi import FastAPI, Request
+import os
+from pathlib import Path
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse
-from pathlib import Path
+from fastapi.responses import FileResponse
 import sys
-import os
 
 # Add root directory to sys.path so we can import backend packages
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -51,16 +51,14 @@ app.include_router(motivation.router, tags=["Motivation"])
 app.include_router(performance.router, tags=["Performance"])
 
 # =============================================================================
-# Static Files - Serve React Frontend (Production Only)
+# Static Files - Serve React Frontend (in production)
 # =============================================================================
 STATIC_DIR = Path(root_dir) / "static"
 
-# Mount static assets if the build directory exists (production)
 if STATIC_DIR.exists():
-    # Mount the assets directory for JS/CSS bundles
-    assets_dir = STATIC_DIR / "assets"
-    if assets_dir.exists():
-        app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
+    # Serve static assets (JS, CSS, images)
+    app.mount("/assets", StaticFiles(directory=STATIC_DIR / "assets"), name="assets")
+
 
 # =============================================================================
 # Health & Status Endpoints
@@ -90,33 +88,32 @@ def api_info():
 
 
 # =============================================================================
-# Root Endpoint - Serve Frontend or API Status
+# SPA Fallback - Serve index.html for client-side routing
 # =============================================================================
 @app.get("/")
-def read_root():
-    """Serve React frontend if available, otherwise return API status."""
-    index_path = STATIC_DIR / "index.html"
-    if index_path.exists():
-        return FileResponse(str(index_path))
-    return {"message": "Turnover Prediction API is running."}
+def serve_root():
+    """Serve the React app root or API info."""
+    if STATIC_DIR.exists():
+        return FileResponse(STATIC_DIR / "index.html")
+    return {"message": "Turnover Prediction API is running.", "docs": "/docs"}
 
 
-# =============================================================================
-# SPA Catch-All Route - Must be last!
-# =============================================================================
 @app.get("/{full_path:path}")
-async def serve_spa(request: Request, full_path: str):
+async def serve_spa(full_path: str):
     """
     Catch-all route for SPA client-side routing.
-    Serves index.html for all non-API routes when frontend is built.
+    
+    - If the requested file exists in static, serve it
+    - Otherwise, serve index.html for React Router to handle
     """
-    # Skip API routes and static files
-    if full_path.startswith(("api/", "docs", "redoc", "openapi.json", "health", "assets/")):
-        return JSONResponse({"detail": "Not Found"}, status_code=404)
+    # Check if it's a static file request
+    static_file = STATIC_DIR / full_path
+    if STATIC_DIR.exists() and static_file.exists() and static_file.is_file():
+        return FileResponse(static_file)
     
-    # Serve index.html for SPA routes
-    index_path = STATIC_DIR / "index.html"
-    if index_path.exists():
-        return FileResponse(str(index_path))
+    # For all other routes, serve index.html (SPA behavior)
+    if STATIC_DIR.exists():
+        return FileResponse(STATIC_DIR / "index.html")
     
-    return JSONResponse({"detail": "Not Found"}, status_code=404)
+    # In development mode without static files
+    return {"error": "Not found", "path": full_path}

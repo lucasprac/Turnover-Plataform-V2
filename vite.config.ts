@@ -50,10 +50,10 @@ export default defineConfig({
       '@': path.resolve(__dirname, './frontend/src'),
     },
   },
+  base: '/',
   build: {
     target: 'esnext',
     outDir: 'build',
-    base: '/',
   },
   server: {
     port: 3000,
