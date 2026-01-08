@@ -9,8 +9,8 @@ A comprehensive dashboard for predicting and analyzing employee turnover using d
 
 - **Dual Prediction Systems**: XGBoost (fast) and Bayesian (uncertainty-aware)
 - **Explainable AI**: SHAP values for individual and aggregate predictions
-- **Supabase Authentication**: JWT-based secure API access
 - **Modern Stack**: FastAPI + React + Vite + Radix UI
+- **Mock Authentication**: Ready for integration or local testing
 
 ## Quick Start
 
@@ -18,7 +18,6 @@ A comprehensive dashboard for predicting and analyzing employee turnover using d
 
 - Python 3.11+
 - Node.js 18+
-- Supabase account
 
 ### 1. Clone and Setup
 
@@ -40,17 +39,16 @@ pip install -r requirements.txt
 
 # Configure environment
 copy .env.example .env
-# Edit .env with your Supabase credentials
 ```
 
 ### 3. Frontend Setup
 
 ```bash
+cd frontend
 npm install
 
 # Configure environment
-copy frontend\.env.example frontend\.env.local
-# Edit .env.local with your Supabase credentials
+copy .env.example .env.local
 ```
 
 ### 4. Run
@@ -60,19 +58,11 @@ copy frontend\.env.example frontend\.env.local
 python -m uvicorn backend.api:app --reload
 
 # Terminal 2: Frontend
+cd frontend
 npm run dev
 ```
 
-Visit `http://localhost:5173` and login with your Supabase credentials.
-
-## Supabase Configuration
-
-1. Create a project at [supabase.com](https://supabase.com)
-2. Enable Email/Password authentication
-3. Copy your credentials to `.env` files:
-   - `SUPABASE_URL`
-   - `SUPABASE_ANON_KEY`
-   - `SUPABASE_JWT_SECRET` (Settings > API > JWT Secret)
+Visit `http://localhost:5173` to access the platform.
 
 ## API Documentation
 
@@ -86,7 +76,7 @@ Visit `http://localhost:5173` and login with your Supabase credentials.
 ├── backend/
 │   ├── api.py              # FastAPI application
 │   ├── app/
-│   │   ├── auth/           # Supabase JWT authentication
+│   │   ├── auth/           # Mock authentication layer
 │   │   ├── routers/        # API endpoints
 │   │   └── services/       # Business logic
 │   └── ml/                 # ML models (XGBoost, Bayesian)
@@ -106,6 +96,7 @@ Visit `http://localhost:5173` and login with your Supabase credentials.
 pytest backend/tests/ -v --cov=backend
 
 # Frontend build check
+cd frontend
 npm run build
 ```
 
