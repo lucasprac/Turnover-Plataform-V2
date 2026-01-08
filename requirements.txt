@@ -16,9 +16,7 @@ numpyro==0.13.2
 jax==0.4.23
 jaxlib==0.4.23
 
-# Auth & Supabase
-supabase==2.3.4
-python-jose[cryptography]==3.3.0
+
 
 # HTTP Client
 httpx==0.26.0

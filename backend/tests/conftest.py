@@ -19,9 +19,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 @pytest.fixture(autouse=True)
 def mock_env_vars(monkeypatch):
     """Set required environment variables for testing."""
-    monkeypatch.setenv("SUPABASE_URL", "https://test.supabase.co")
-    monkeypatch.setenv("SUPABASE_ANON_KEY", "test-anon-key")
-    monkeypatch.setenv("SUPABASE_JWT_SECRET", "test-jwt-secret-key-min-32-chars-long!")
     monkeypatch.setenv("ALLOWED_ORIGINS", "http://localhost:5173")
 
 
@@ -38,44 +35,7 @@ def client():
 # =============================================================================
 # Auth Fixtures
 # =============================================================================
-@pytest.fixture
-def mock_valid_token():
-    """Return a mock valid JWT token payload."""
-    return {
-        "sub": "user-123",
-        "email": "test@example.com",
-        "role": "authenticated",
-        "aud": "authenticated"
-    }
 
-
-@pytest.fixture
-def auth_headers(mock_valid_token):
-    """
-    Create authorization headers with a mocked valid token.
-    
-    Use with patch to bypass actual JWT validation.
-    """
-    return {"Authorization": "Bearer mock-valid-token"}
-
-
-@pytest.fixture
-def mock_auth(mock_valid_token):
-    """
-    Mock the authentication dependency to always return a valid user.
-    
-    Usage:
-        def test_protected_endpoint(client, mock_auth):
-            with mock_auth:
-                response = client.post("/train")
-    """
-    from backend.app.auth.dependencies import UserInfo
-    
-    user = UserInfo(mock_valid_token)
-    return patch(
-        'backend.app.routers.predictions.get_current_user',
-        return_value=user
-    )
 
 
 # =============================================================================

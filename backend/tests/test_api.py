@@ -34,6 +34,7 @@ class TestHealthEndpoints:
         assert "endpoints" in data
 
 
+
 class TestTrainingEndpoints:
     """Tests for model training endpoints."""
     
@@ -45,54 +46,31 @@ class TestTrainingEndpoints:
         assert "is_training" in data
         assert "progress" in data
     
-    def test_train_requires_auth(self, client):
-        """Test that training endpoint requires authentication."""
+    def test_train_endpoint(self, client):
+        """Test training endpoint (now public)."""
         response = client.post("/train")
-        assert response.status_code == 401
-    
-    def test_train_with_auth(self, client, mock_auth):
-        """Test training with valid authentication."""
-        with mock_auth:
-            response = client.post("/train")
-            # May fail due to model issues, but should not be 401
-            assert response.status_code != 401
+        # May fail due to model issues/bg thread, but should accessible (not 401)
+        assert response.status_code != 401
 
 
 class TestPredictionEndpoints:
     """Tests for prediction endpoints."""
     
-    def test_individual_prediction_requires_auth(self, client):
-        """Test individual prediction requires authentication."""
-        response = client.post(
-            "/predict/individual",
-            json={"employee_id": "EMP001"}
-        )
-        assert response.status_code == 401
-    
-    def test_aggregate_prediction_requires_auth(self, client):
-        """Test aggregate prediction requires authentication."""
-        response = client.post(
-            "/predict/aggregate",
-            json={}
-        )
-        assert response.status_code == 401
-    
-    def test_individual_prediction_with_auth(self, client, mock_auth, sample_df):
-        """Test individual prediction with valid auth."""
-        with mock_auth:
-            with patch('backend.app.routers.predictions.load_data', return_value=sample_df):
-                with patch('backend.app.routers.predictions.predict_individual') as mock_predict:
-                    mock_predict.return_value = {
-                        'turnover_probability': 0.35,
-                        'shap_values': {'feature1': 0.1},
-                        'grouped_shap': []
-                    }
-                    response = client.post(
-                        "/predict/individual",
-                        json={"employee_id": "EMP001"}
-                    )
-                    # Should not be 401 or 500
-                    assert response.status_code in [200, 404]
+    def test_individual_prediction(self, client, sample_df):
+        """Test individual prediction endpoint."""
+        with patch('backend.app.routers.predictions.load_data', return_value=sample_df):
+            with patch('backend.app.routers.predictions.predict_individual') as mock_predict:
+                mock_predict.return_value = {
+                    'turnover_probability': 0.35,
+                    'shap_values': {'feature1': 0.1},
+                    'grouped_shap': []
+                }
+                response = client.post(
+                    "/predict/individual",
+                    json={"employee_id": "EMP001"}
+                )
+                # Should not be 401 or 500
+                assert response.status_code in [200, 404]
 
 
 class TestBayesianEndpoints:
@@ -105,27 +83,6 @@ class TestBayesianEndpoints:
         data = response.json()
         assert "is_training" in data
         assert "status" in data
-    
-    def test_bayesian_train_requires_auth(self, client):
-        """Test Bayesian training requires authentication."""
-        response = client.post("/train/bayesian")
-        assert response.status_code == 401
-    
-    def test_bayesian_individual_requires_auth(self, client):
-        """Test Bayesian individual prediction requires auth."""
-        response = client.post(
-            "/predict/individual/bayesian",
-            json={"employee_id": "EMP001"}
-        )
-        assert response.status_code == 401
-    
-    def test_bayesian_aggregate_requires_auth(self, client):
-        """Test Bayesian aggregate prediction requires auth."""
-        response = client.post(
-            "/predict/aggregate/bayesian",
-            json={}
-        )
-        assert response.status_code == 401
 
 
 class TestDashboardEndpoint:

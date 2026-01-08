@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 import threading
 from pydantic import BaseModel
 from backend.app.services.prediction_service import (
@@ -8,6 +8,7 @@ from backend.app.services.prediction_service import (
 from backend.ml import one_year_model, five_year_model, data_generator
 import pandas as pd
 import numpy as np
+from backend.app.auth.dependencies import UserInfo, get_current_user
 
 router = APIRouter()
 

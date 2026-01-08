@@ -34,13 +34,7 @@ DEBUG = os.getenv("DEBUG", "false").lower() == "true"
 _origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173")
 ALLOWED_ORIGINS = [origin.strip() for origin in _origins.split(",")]
 
-# =============================================================================
-# Supabase Configuration
-# =============================================================================
-SUPABASE_URL = os.getenv("SUPABASE_URL", "")
-SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "")
-SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
-SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET", "")
+
 
 # =============================================================================
 # File Paths

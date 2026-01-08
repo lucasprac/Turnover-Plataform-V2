@@ -22,7 +22,7 @@ from backend.app.routers import employees, predictions, motivation, performance
 # =============================================================================
 app = FastAPI(
     title="Turnover Prediction API",
-    description="API for employee turnover prediction using XGBoost and Bayesian models with Supabase authentication",
+    description="API for employee turnover prediction using XGBoost and Bayesian models",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc"
@@ -72,7 +72,7 @@ def api_info():
     return {
         "name": "Turnover Prediction API",
         "version": "1.0.0",
-        "auth": "Supabase JWT",
+        "version": "1.0.0",
         "endpoints": {
             "docs": "/docs",
             "redoc": "/redoc",
