@@ -14,8 +14,8 @@ RUN npm install
 # Copy remaining frontend source
 COPY frontend/ ./
 
-# Build the frontend
-RUN npm run build
+# Fix permissions on npm binaries and build the frontend
+RUN chmod -R +x node_modules/.bin && npm run build
 
 # =============================================================================
 # Stage 2: Production with Python Backend
