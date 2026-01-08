@@ -45,10 +45,10 @@ app.add_middleware(
 # =============================================================================
 # Include Routers
 # =============================================================================
-app.include_router(employees.router, tags=["Employees"])
-app.include_router(predictions.router, tags=["Predictions"])
-app.include_router(motivation.router, tags=["Motivation"])
-app.include_router(performance.router, tags=["Performance"])
+app.include_router(employees.router, prefix="/api", tags=["Employees"])
+app.include_router(predictions.router, prefix="/api", tags=["Predictions"])
+app.include_router(motivation.router, prefix="/api", tags=["Motivation"])
+app.include_router(performance.router, prefix="/api", tags=["Performance"])
 
 # =============================================================================
 # Static Files - Serve React Frontend (in production)

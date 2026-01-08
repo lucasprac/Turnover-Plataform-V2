@@ -28,7 +28,7 @@ export function MotivationPage() {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const response = await fetch('http://localhost:8000/motivation/data');
+                const response = await fetch('/api/motivation/data');
                 if (!response.ok) {
                     throw new Error('Failed to fetch motivation data');
                 }

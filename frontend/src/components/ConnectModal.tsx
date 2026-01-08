@@ -8,7 +8,7 @@ interface ConnectModalProps {
 }
 
 export const ConnectModal: React.FC<ConnectModalProps> = ({ isOpen, onClose }) => {
-    const [endpoint, setEndpoint] = useState('http://localhost:8000');
+    const [endpoint, setEndpoint] = useState('');
     const [apiKey, setApiKey] = useState('');
 
     if (!isOpen) return null;

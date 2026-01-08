@@ -91,8 +91,8 @@ const PerformanceDashboard: React.FC = () => {
     const fetchMetadata = async () => {
         try {
             const [colRes, configRes] = await Promise.all([
-                fetch('http://localhost:8000/performance/columns'),
-                fetch('http://localhost:8000/performance/configs')
+                fetch('/api/performance/columns'),
+                fetch('/api/performance/configs')
             ]);
             if (colRes.ok) setAvailableColumns(await colRes.json());
             if (configRes.ok) setSavedConfigs(await configRes.json());
@@ -109,7 +109,7 @@ const PerformanceDashboard: React.FC = () => {
 
         const pollInterval = setInterval(async () => {
             try {
-                const statusRes = await fetch('http://localhost:8000/performance/status');
+                const statusRes = await fetch('/api/performance/status');
                 const statusData = await statusRes.json();
                 setProgress(statusData.progress);
             } catch (err) {
@@ -125,7 +125,7 @@ const PerformanceDashboard: React.FC = () => {
             activeConfig.inputs.forEach(i => queryParams.append('inputs', i));
             activeConfig.outputs.forEach(o => queryParams.append('outputs', o));
 
-            const res = await fetch(`http://localhost:8000/performance/evaluate?${queryParams.toString()}`);
+            const res = await fetch(`/api/performance/evaluate?${queryParams.toString()}`);
             if (!res.ok) throw new Error("Evaluation failed");
             const data = await res.json();
             setMetrics(data);
@@ -142,7 +142,7 @@ const PerformanceDashboard: React.FC = () => {
         if (!configName) return;
         const newConfig = { ...config, name: configName, timestamp: new Date().toISOString() };
         try {
-            const res = await fetch('http://localhost:8000/performance/configs', {
+            const res = await fetch('/api/performance/configs', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(newConfig)
