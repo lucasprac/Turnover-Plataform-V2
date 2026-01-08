@@ -21,6 +21,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy necessary application code
+# We copy everything in backend/ to /app/backend/
 COPY backend/ ./backend/
 COPY config/ ./config/
 COPY synthetic_turnover_data.csv .
