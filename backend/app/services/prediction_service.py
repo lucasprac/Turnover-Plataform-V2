@@ -15,18 +15,9 @@ backend_dir = os.path.dirname(app_dir)
 # root_dir: .../Turnover program (parent of backend)
 root_dir = os.path.dirname(backend_dir)
 
-if root_dir not in sys.path:
-    sys.path.append(root_dir)
-
 # Import models from backend.ml
-try:
-    from backend.ml import one_year_model
-    from backend.ml import five_year_model
-except ImportError:
-    # Fallback if run directly or path issues
-    sys.path.append(os.path.join(backend_dir, 'ml'))
-    import one_year_model
-    import five_year_model
+from backend.ml import one_year_model
+from backend.ml import five_year_model
 
 # Global cache
 cached_df = None

@@ -16,10 +16,10 @@ from sklearn.pipeline import Pipeline
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-from .preprocessing import aggregate_data_for_5year
+from backend.ml.preprocessing import aggregate_data_for_5year
 from shapash import SmartExplainer
 from shapash.utils.load_smartpredictor import load_smartpredictor
-from . import shapash_config
+from backend.ml import shapash_config
 
 # Models are in backend/ml
 

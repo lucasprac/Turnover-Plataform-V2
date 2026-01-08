@@ -10,6 +10,7 @@ interface HudAreaChartProps {
     borderColor?: string;
     dotColor?: string;
     hideFrame?: boolean;
+    animate?: boolean;
 }
 
 export function HudAreaChart({
@@ -20,6 +21,7 @@ export function HudAreaChart({
     borderColor = "#6B7280",
     dotColor = "#6B7280",
     hideFrame = false,
+    animate = true,
 }: HudAreaChartProps) {
 
     const { pathD, areaD } = useMemo(() => {

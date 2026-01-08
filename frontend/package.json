@@ -69,6 +69,7 @@
         "@types/react": "^18.2.15",
         "@types/react-dom": "^18.2.7",
         "@types/react-plotly.js": "^2.6.4",
+        "@types/node": "^20.10.0",
         "@vitejs/plugin-react": "^4.0.3",
         "autoprefixer": "^10.4.14",
         "postcss": "^8.4.27",

@@ -299,7 +299,7 @@ def train_bayesian_model(data_path: str = "synthetic_turnover_data.csv",
     Returns:
         Trained BayesianTurnoverModel
     """
-    from .preprocessing import load_and_preprocess_one_year
+    from backend.ml.preprocessing import load_and_preprocess_one_year
     
     logger.info("Training Bayesian model with NUTS...")
     if progress_callback:
@@ -354,7 +354,7 @@ def predict_bayesian_individual(input_data: dict) -> dict:
     Returns:
         Dictionary with uncertainty metrics
     """
-    from .preprocessing import feature_engineering
+    from backend.ml.preprocessing import feature_engineering
     
     # Load model
     model = load_bayesian_model()
@@ -391,7 +391,7 @@ def predict_bayesian_aggregate(cohort_data: list) -> dict:
     Returns:
         Aggregate uncertainty metrics
     """
-    from .preprocessing import feature_engineering
+    from backend.ml.preprocessing import feature_engineering
     
     model = load_bayesian_model()
     if model is None:

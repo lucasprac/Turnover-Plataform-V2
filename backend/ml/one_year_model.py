@@ -15,12 +15,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 # Lazy load preprocessing to avoid circular dependency issues if any
-from .preprocessing import load_and_preprocess_one_year, feature_engineering
-try:
-    from ..app.services.frank_wolfe_multiclass import FrankWolfeMulticlass
-except ImportError:
-    # Use relative import if running as module from root
-    from backend.app.services.frank_wolfe_multiclass import FrankWolfeMulticlass
+from backend.ml.preprocessing import load_and_preprocess_one_year, feature_engineering
+from backend.app.services.frank_wolfe_multiclass import FrankWolfeMulticlass
 from shapash import SmartExplainer
 from shapash.utils.load_smartpredictor import load_smartpredictor
 from backend.ml import shapash_config

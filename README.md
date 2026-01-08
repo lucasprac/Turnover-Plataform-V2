@@ -64,6 +64,20 @@ npm run dev
 
 Visit `http://localhost:5173` to access the platform.
 
+## Docker Deployment (Recommended)
+
+The easiest way to run the platform is using Docker Compose.
+
+```bash
+# Build and start all services
+docker-compose up --build
+```
+
+- **Frontend**: http://localhost
+- **Backend API Docs**: http://localhost:8000/docs
+
+This uses a multi-stage build for the frontend (Nginx) and a slim Python environment for the backend. Data and models are persisted in the `./.data` directory.
+
 ## API Documentation
 
 - **Swagger UI**: http://localhost:8000/docs
