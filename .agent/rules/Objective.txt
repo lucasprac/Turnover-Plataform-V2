@@ -1,9 +1,2 @@
 Objective
-The objective of the program is to predict employee turnover using variables from three conceptual categories (e.g., demographic, contractual, and performance-related features; I will adapt the exact categories to my dataset). The goal is to build a performant XGBoost-based model  and provide model explainability using SHAP values at both global and individual levels(use shap.TreeExplainer), to support HR decision-making.
-Data and features
-Assume a tabular dataset where each row represents an employee and the target is a binary turnover indicator (left / stayed). Empirical research shows XGBoost is effective for this kind of tabular attrition problem.​
-
-Explicitly structure feature engineering and analysis around three feature groups (I will specify names later, but keep the code flexible so feature groups can be configured in a list/dict).
-- The Legacy directory is just for archive. Don't use anything from then
-*Frontend:*
-- Evertime that you make a changing in the frontend, open the browser and check how is it.
+The objective of the program is to predict employee turnover using variables from different categories (e.g., demographic, contractual, and performance-related features; I will adapt the exact categories to my dataset). The goal is to build a performant model and provide model explainability for the business values at both global and individual levels, to support HR decision-making.

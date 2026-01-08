@@ -20,6 +20,7 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { X, LayoutPanelLeft } from "lucide-react";
+import AnimeLoading from './AnimeLoading';
 
 const FEATURE_GROUPS: Record<string, string[]> = {
     "Demographic": [
@@ -456,41 +457,7 @@ const PerformanceDashboard: React.FC = () => {
     }
 
     if (loading) {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-[70vh] space-y-12 p-8 animate-in fade-in duration-1000">
-                <div className="relative">
-                    <div className="w-32 h-32 rounded-full border border-primary/5 animate-[ping_3s_linear_infinite]" />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-16 h-16 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
-                    </div>
-                </div>
-
-                <div className="space-y-4 text-center max-w-md">
-                    <h2 className="text-2xl font-semibold tracking-tight text-foreground/80">Processing Intelligence</h2>
-                    <p className="text-muted-foreground/60 font-light text-sm uppercase tracking-[0.2em]">
-                        Executing DEA Optimization Phase
-                    </p>
-                </div>
-
-                <div className="w-full max-w-sm space-y-4">
-                    <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-primary/60 px-1">
-                        <span>Analysis Depth</span>
-                        <span className="tabular-nums">{Math.round(progress)}%</span>
-                    </div>
-                    <div className="h-1.5 w-full bg-muted/30 rounded-full overflow-hidden border border-muted/50">
-                        <div
-                            className="h-full bg-primary transition-all duration-500 ease-out"
-                            style={{ width: `${progress}%` }}
-                        />
-                    </div>
-                </div>
-
-                <div className="flex items-center gap-3 px-5 py-2.5 bg-muted/30 border border-muted/50 rounded-full text-[10px] font-bold uppercase tracking-tighter text-muted-foreground/70">
-                    <BrainCircuit className="w-3.5 h-3.5 animate-pulse" />
-                    <span>Solving Peer-Evaluation Consensus (Models 6, 7, 9)</span>
-                </div>
-            </div>
-        );
+        return <AnimeLoading progress={progress} />;
     }
 
     if (error) {

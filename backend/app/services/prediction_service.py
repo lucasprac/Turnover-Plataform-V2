@@ -152,9 +152,11 @@ def get_dashboard_metrics(df):
     
     from shapash.utils.load_smartpredictor import load_smartpredictor
     from backend.ml import shapash_config
+    from backend.ml.preprocessing import feature_engineering
     
     # Predict
-    X_processed = preprocessor.transform(df)
+    df_engineered = feature_engineering(df)
+    X_processed = preprocessor.transform(df_engineered)
     if selector:
         X_final = selector.transform(X_processed)
     else:
@@ -180,18 +182,23 @@ def get_dashboard_metrics(df):
             # Align columns if necessary
             if hasattr(predictor, 'features_types'):
                 req = list(predictor.features_types.keys())
-                # Ensure all required columns are present
-                for c in req:
-                    if c not in X_sample_df.columns:
-                        X_sample_df[c] = 0.0
+            elif hasattr(predictor, 'model_fnames'):
+                req = list(predictor.model_fnames)
+            else:
+                req = feature_names
+
+            # Ensure all required columns are present
+            for c in req:
+                if c not in X_sample_df.columns:
+                    X_sample_df[c] = 0.0
+            
+            # Reorder to match predictor exactly
+            X_sample_df = X_sample_df[req].copy()
                 
-                # Reorder to match predictor exactly
-                X_sample_df = X_sample_df[req].copy()
-                
-                # Force types
-                predictor.features_types = {k: 'float64' for k in predictor.features_types.keys()}
-                for c in X_sample_df.columns:
-                    X_sample_df[c] = X_sample_df[c].astype(float)
+            # Force types
+            predictor.features_types = {k: 'float64' for k in predictor.features_types.keys()}
+            for c in X_sample_df.columns:
+                X_sample_df[c] = X_sample_df[c].astype(float)
 
             try:
                 print(f"DEBUG: Dashboard X_sample_df columns order: {list(X_sample_df.columns)}")
@@ -203,6 +210,10 @@ def get_dashboard_metrics(df):
 
             # detail_contributions returns (n_samples, n_features)
             contributions = predictor.detail_contributions()
+            
+            # Ensure all columns are numeric
+            for col in contributions.columns:
+                contributions[col] = pd.to_numeric(contributions[col], errors='coerce').fillna(0)
             
             # Average absolute contributions for "Global Risk Drivers"
             mean_abs_contributions = contributions.abs().mean().to_dict()
@@ -253,7 +264,12 @@ def get_dashboard_metrics(df):
     predictions_list = top_risk_df[['id', 'risk', 'name']].to_dict(orient='records')
     
     # Feature Importance
-    importances = model.feature_importances_
+    importances = []
+    if hasattr(model, 'feature_importances_'):
+        importances = model.feature_importances_
+    elif hasattr(model, 'base_estimator') and hasattr(model.base_estimator, 'feature_importances_'):
+        importances = model.base_estimator.feature_importances_
+    
     feat_imp_list = []
     if len(importances) == len(feature_names):
          for name, imp in zip(feature_names, importances):

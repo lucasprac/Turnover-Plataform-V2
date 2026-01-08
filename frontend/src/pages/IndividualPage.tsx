@@ -1,16 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import ReactDOM from 'react-dom/client';
 import { Sidebar } from '@/layout/Sidebar';
-import '@/global.css';
 import axios from 'axios';
-import { IndividualPrediction } from '@/types';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid } from 'recharts';
+import { IndividualPrediction, PredictionSystem, BayesianIndividualPrediction } from '@/types';
+import { PredictionSystemToggle } from '@/components/PredictionSystemToggle';
+import { UncertaintyDisplay } from '@/components/UncertaintyDisplay';
+import { ComputationWarning } from '@/components/ComputationWarning';
 import { ContributionChart } from '../features/analytics/ContributionChart';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-// Force rebuild for fixed import
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Search, Loader2, User, Activity } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -30,6 +27,8 @@ export const IndividualPage = () => {
     const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
     const [employeeDetails, setEmployeeDetails] = useState<any>(null);
     const [prediction, setPrediction] = useState<IndividualPrediction | null>(null);
+    const [bayesianPrediction, setBayesianPrediction] = useState<BayesianIndividualPrediction | null>(null);
+    const [predictionSystem, setPredictionSystem] = useState<PredictionSystem>('xgboost');
     const [analyzing, setAnalyzing] = useState(false);
     const [showGrouped, setShowGrouped] = useState(false);
 
@@ -52,10 +51,11 @@ export const IndividualPage = () => {
     }, [searchTerm]);
 
     // Fetch details and predict when selected
-    const handleSelectEmployee = async (id: string) => {
+    const handleSelectEmployee = async (id: string, system: PredictionSystem = predictionSystem) => {
         setSelectedEmployeeId(id);
         setEmployeeDetails(null);
         setPrediction(null);
+        setBayesianPrediction(null);
         setAnalyzing(true);
 
         try {
@@ -64,8 +64,13 @@ export const IndividualPage = () => {
             setEmployeeDetails(detailResp.data);
 
             // 2. Get Prediction
-            const predictResp = await axios.post('/api/predict/individual', { employee_id: id });
-            setPrediction(predictResp.data);
+            if (system === 'xgboost') {
+                const predictResp = await axios.post('/api/predict/individual', { employee_id: id });
+                setPrediction(predictResp.data);
+            } else {
+                const predictResp = await axios.post('/api/predict/individual/bayesian', { employee_id: id });
+                setBayesianPrediction(predictResp.data);
+            }
         } catch (e) {
             console.error("Analysis failed", e);
             alert("Failed to analyze employee. Make sure models are trained.");
@@ -73,6 +78,13 @@ export const IndividualPage = () => {
             setAnalyzing(false);
         }
     };
+
+    // Re-analyze when system changes if employee is selected
+    useEffect(() => {
+        if (selectedEmployeeId) {
+            handleSelectEmployee(selectedEmployeeId, predictionSystem);
+        }
+    }, [predictionSystem]);
 
     const contributionData = prediction
         ? (showGrouped && prediction.grouped_contributions && prediction.grouped_contributions.length > 0
@@ -84,9 +96,16 @@ export const IndividualPage = () => {
         <div className="flex bg-background min-h-screen font-sans text-foreground">
             <Sidebar />
             <main className="flex-1 ml-64 p-8">
-                <div className="mb-8">
-                    <h2 className="text-3xl font-light text-foreground tracking-tight">Individual Risk Analysis</h2>
-                    <p className="text-muted-foreground font-light mt-1">Select an employee to view their turnover risk profile.</p>
+                <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h2 className="text-3xl font-light text-foreground tracking-tight">Individual Risk Analysis</h2>
+                        <p className="text-muted-foreground font-light mt-1">Select an employee to view their turnover risk profile.</p>
+                    </div>
+                    <PredictionSystemToggle
+                        value={predictionSystem}
+                        onChange={setPredictionSystem}
+                        disabled={analyzing}
+                    />
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 h-[calc(100vh-12rem)]">
@@ -222,17 +241,31 @@ export const IndividualPage = () => {
                                     </TabsContent>
 
                                     <TabsContent value="risk" className="h-full mt-0 flex flex-col gap-6 overflow-hidden">
+                                        {/* Computation Warning for Bayesian */}
+                                        {predictionSystem === 'bayesian' && analyzing && (
+                                            <div className="flex-none">
+                                                <ComputationWarning
+                                                    mode="nuts"
+                                                    isComputing={analyzing}
+                                                />
+                                            </div>
+                                        )}
+
                                         {analyzing ? (
                                             <div className="h-full flex items-center justify-center p-12 bg-muted/10 rounded-lg border border-dashed">
                                                 <div className="text-center">
                                                     <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
                                                     <p className="text-sm font-medium">Running prediction models...</p>
-                                                    <p className="text-xs text-muted-foreground">Calculating turnover probability and contributing factors</p>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {predictionSystem === 'bayesian'
+                                                            ? 'Sampling posterior distributions...'
+                                                            : 'Calculating turnover probability...'}
+                                                    </p>
                                                 </div>
                                             </div>
-                                        ) : prediction ? (
+                                        ) : (predictionSystem === 'xgboost' && prediction) ? (
                                             <>
-                                                {/* Risk Score */}
+                                                {/* Risk Score (XGBoost) */}
                                                 <div className="flex-none">
                                                     <Card className={`text-center p-6 transition-colors border-2 ${prediction.turnover_probability > 0.5 ? 'bg-red-50/50 border-red-100' : 'bg-emerald-50/50 border-emerald-100'}`}>
                                                         <div className="flex flex-row items-center justify-around px-4">
@@ -252,7 +285,7 @@ export const IndividualPage = () => {
                                                     </Card>
                                                 </div>
 
-                                                {/* Top Drivers Chart */}
+                                                {/* Top Drivers Chart (XGBoost) */}
                                                 <div className="flex-1 min-h-[400px] overflow-hidden">
                                                     <Card className="h-full flex flex-col shadow-sm">
                                                         <CardHeader className="pb-2 flex flex-row items-center justify-between border-b flex-none">
@@ -283,6 +316,21 @@ export const IndividualPage = () => {
                                                             </div>
                                                         </CardContent>
                                                     </Card>
+                                                </div>
+                                            </>
+                                        ) : (predictionSystem === 'bayesian' && bayesianPrediction) ? (
+                                            <>
+                                                {/* Uncertainty Display (Bayesian) */}
+                                                <div className="flex-none">
+                                                    <UncertaintyDisplay prediction={bayesianPrediction} />
+                                                </div>
+
+                                                {/* Placeholder for Drivers */}
+                                                <div className="flex-1 min-h-[200px] flex items-center justify-center p-8 text-center text-muted-foreground border-2 border-dashed rounded-lg bg-gray-50">
+                                                    <div>
+                                                        <p className="font-medium">Feature contributions not available for Bayesian model yet.</p>
+                                                        <p className="text-xs mt-2">Focus on uncertainty intervals for risk assessment.</p>
+                                                    </div>
                                                 </div>
                                             </>
                                         ) : (

@@ -1,6 +1,6 @@
 ---
 trigger: model_decision
-description: When working with shapash
+description: when you use it shapash, be guide by this document
 ---
 
 Shapash Core Concepts & Setup:

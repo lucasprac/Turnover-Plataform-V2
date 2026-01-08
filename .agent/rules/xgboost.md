@@ -1,6 +1,6 @@
 ---
 trigger: model_decision
-description: When working in the Machine Learning model with XGboost
+description: when you use it XGboost, be guide by this document
 ---
 
 # Building XGBoost From Source

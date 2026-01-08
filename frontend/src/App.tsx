@@ -6,6 +6,7 @@ import { AggregatePage } from './pages/AggregatePage';
 import { SettingsPage } from './pages/SettingsPage';
 import { MotivationPage } from './pages/MotivationPage';
 import { PerformancePage } from './pages/PerformancePage';
+import { BayesianAnalysisPage } from './pages/BayesianAnalysisPage';
 
 export default function App() {
     // Hardcoded endpoint for the internal application
@@ -20,6 +21,7 @@ export default function App() {
                 <Route path="/aggregate" element={<AggregatePage />} />
                 <Route path="/motivation" element={<MotivationPage />} />
                 <Route path="/performance" element={<PerformancePage />} />
+                <Route path="/bayesian-analysis" element={<BayesianAnalysisPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
             </Routes>
         </div>

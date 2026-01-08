@@ -1,0 +1,31 @@
+[project]
+name = "turnover-analytics-platform"
+version = "1.0.0"
+description = "Employee turnover prediction platform with XGBoost and Bayesian models"
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests", "tests"]
+python_files = "test_*.py"
+python_functions = "test_*"
+addopts = "-v --tb=short"
+
+[tool.coverage.run]
+source = ["backend"]
+branch = true
+omit = [
+    "*/__pycache__/*",
+    "*/tests/*",
+    "*/legacy/*"
+]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 80
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError"
+]

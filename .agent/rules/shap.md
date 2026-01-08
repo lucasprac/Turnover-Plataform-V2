@@ -1,6 +1,6 @@
 ---
 trigger: model_decision
-description: When was working with the shap
+description: when you use it shap, be guide by this document
 ---
 
 # SHAP Decision Plots

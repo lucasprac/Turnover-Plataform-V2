@@ -4,12 +4,17 @@ import numpy as np
 import xgboost as xgb
 import joblib
 import os
+import logging
 from sklearn.model_selection import KFold, RandomizedSearchCV, train_test_split
 from sklearn.feature_selection import SelectFromModel
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 from .preprocessing import aggregate_data_for_5year
 from shapash import SmartExplainer
@@ -18,12 +23,10 @@ from . import shapash_config
 
 # Models are in backend/ml
 
-
 import sys
 
 # Ensure root is in path if not already
 current_dir = os.path.dirname(os.path.abspath(__file__))
-# Note: In production/actual structure, we might need more careful path management
 root_dir = os.getcwd() 
 if root_dir not in sys.path:
     sys.path.append(root_dir)
@@ -37,7 +40,7 @@ def train_five_year_model(data_path="synthetic_turnover_data.csv", save_model=Tr
         if progress_callback:
             progress_callback(p, msg)
             
-    print("\n--- Training Five-Year Model (Aggregated Level) ---")
+    logger.info("--- Training Five-Year Model (Aggregated Level) ---")
     update(0, "Starting Aggregated Model...")
 
     # 1. Load and Aggregate
@@ -52,7 +55,7 @@ def train_five_year_model(data_path="synthetic_turnover_data.csv", save_model=Tr
     # Let's include TotalEmployees as a feature because scale matters.
     X['TotalEmployees'] = agg_df['TotalEmployees']
     
-    print(f"Aggregated Data Shape: {X.shape}")
+    logger.info(f"Aggregated Data Shape: {X.shape}")
     update(10, "Data aggregated")
 
     # 2. Preprocessing (Civilizing Kit: Pipeline)
@@ -86,11 +89,11 @@ def train_five_year_model(data_path="synthetic_turnover_data.csv", save_model=Tr
     else:
          feature_names_out = [f"feat_{i}" for i in range(X_processed.shape[1])]
     
-    print(f"Initial Feature Count: {X_processed.shape[1]}")
+    logger.info(f"Initial Feature Count: {X_processed.shape[1]}")
     update(20, "Selecting features...")
 
     # Feature Selection (Lasso-like)
-    print("Performing Feature Selection...")
+    logger.info("Performing Feature Selection...")
     selection_model = xgb.XGBRegressor(
         objective='reg:squarederror',
         n_estimators=100,
@@ -106,7 +109,7 @@ def train_five_year_model(data_path="synthetic_turnover_data.csv", save_model=Tr
     mask = selector.get_support()
     feature_names_selected = [name for name, selected in zip(feature_names_out, mask) if selected]
     
-    print(f"Selected Feature Count: {X_selected.shape[1]}")
+    logger.info(f"Selected Feature Count: {X_selected.shape[1]}")
     update(40, "Features selected")
 
     # 4. Hyperparameter Tuning (CV)
@@ -117,8 +120,8 @@ def train_five_year_model(data_path="synthetic_turnover_data.csv", save_model=Tr
     X_train = pd.DataFrame(X_train_vals, columns=feature_names_selected)
     X_test = pd.DataFrame(X_test_vals, columns=feature_names_selected)
 
-    print(f"Split Count -> Train: {X_train.shape[0]} | Test: {X_test.shape[0]}")
-    print("Starting Hyperparameter Optimization...")
+    logger.info(f"Split Count -> Train: {X_train.shape[0]} | Test: {X_test.shape[0]}")
+    logger.info("Starting Hyperparameter Optimization...")
     update(50, "Optimizing hyperparameters...")
     params = {
         'learning_rate': [0.01, 0.05, 0.1],
@@ -145,7 +148,7 @@ def train_five_year_model(data_path="synthetic_turnover_data.csv", save_model=Tr
     
     search.fit(X_train, y_train)
     
-    print(f"Best CV MAE: {-search.best_score_:.4f}")
+    logger.info(f"Best CV MAE: {-search.best_score_:.4f}")
     
     final_model = search.best_estimator_
     update(80, "Model optimized")
@@ -161,15 +164,15 @@ def train_five_year_model(data_path="synthetic_turnover_data.csv", save_model=Tr
     r2_train = r2_score(y_train, y_pred_train)
     r2_test = r2_score(y_test, y_pred_test)
     
-    print("\n--- Overfitting Check (Train vs Test) ---")
-    print(f"MAE  -> Train: {mae_train:.2f} | Test: {mae_test:.2f} (Gap: {abs(mae_train - mae_test):.2f})")
-    print(f"RMSE -> Train: {rmse_train:.2f} | Test: {rmse_test:.2f}")
-    print(f"R2   -> Train: {r2_train:.4f} | Test: {r2_test:.4f}")
+    logger.info("--- Overfitting Check (Train vs Test) ---")
+    logger.info(f"MAE  -> Train: {mae_train:.2f} | Test: {mae_test:.2f} (Gap: {abs(mae_train - mae_test):.2f})")
+    logger.info(f"RMSE -> Train: {rmse_train:.2f} | Test: {rmse_test:.2f}")
+    logger.info(f"R2   -> Train: {r2_train:.4f} | Test: {r2_test:.4f}")
     
     if r2_train > 0.9 and r2_test < 0.6:
-        print("WARNING: Large R2 Gap detected. Model may be OVERTUNNED (Overfitting).")
+        logger.warning("Large R2 Gap detected. Model may be OVERTUNNED (Overfitting).")
     else:
-        print("Model consistency looks good.")
+        logger.info("Model consistency looks good.")
 
     update(90, "Model evaluated")
 
@@ -178,13 +181,18 @@ def train_five_year_model(data_path="synthetic_turnover_data.csv", save_model=Tr
             'model': final_model,
             'preprocessor': preprocessor,
             'selector': selector,
-            'feature_names': feature_names_selected # Selected names
+            'feature_names': feature_names_selected, # Selected names
+            'metrics': {
+                'mae': float(mae_test),
+                'rmse': float(rmse_test),
+                'r2_score': float(r2_test)
+            }
         }
         joblib.dump(artifact, MODEL_PATH)
-        print(f"Model saved to {MODEL_PATH}")
+        logger.info(f"Model saved to {MODEL_PATH}")
 
         # --- Shapash Integration ---
-        print("\nCreating Shapash SmartPredictor for 5-Year Model...")
+        logger.info("Creating Shapash SmartPredictor for 5-Year Model...")
         try:
             X_test_df = X_test
 
@@ -204,9 +212,9 @@ def train_five_year_model(data_path="synthetic_turnover_data.csv", save_model=Tr
             # Filter features_dict
             valid_features_dict = {col: shapash_config.FEATURES_DICT.get(col, col) for col in X_test_df.columns}
 
-            print(f"DEBUG: Model features: {getattr(final_model, 'n_features_in_', 'N/A')}")
-            print(f"DEBUG: X_test_df columns: {len(X_test_df.columns)}")
-            print(f"DEBUG: valid_features_dict items: {len(valid_features_dict)}")
+            logger.debug(f"Model features: {getattr(final_model, 'n_features_in_', 'N/A')}")
+            logger.debug(f"X_test_df columns: {len(X_test_df.columns)}")
+            logger.debug(f"valid_features_dict items: {len(valid_features_dict)}")
             
             xpl = SmartExplainer(
                 model=final_model,
@@ -224,12 +232,10 @@ def train_five_year_model(data_path="synthetic_turnover_data.csv", save_model=Tr
             predictor = xpl.to_smartpredictor()
             predictor_path = os.path.join(current_dir, "five_year_predictor.pkl")
             predictor.save(predictor_path)
-            print(f"5-Year SmartPredictor saved successfully to {predictor_path}")
+            logger.info(f"5-Year SmartPredictor saved successfully to {predictor_path}")
 
         except Exception as e:
-            print(f"Error creating/saving 5-Year Shapash predictor: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.error(f"Error creating/saving 5-Year Shapash predictor: {e}", exc_info=True)
     
     update(100, "Five Year Model Complete")
     return final_model
@@ -301,7 +307,7 @@ def predict_aggregate_turnover(agg_data: dict):
                     except:
                         shap_dict[k] = 0.0
         else:
-            print(f"WARNING: 5-Year Predictor not found at {predictor_path}")
+            logger.warning(f"5-Year Predictor not found at {predictor_path}")
 
         return {
             "prediction": max(0, float(prediction)),
@@ -309,9 +315,7 @@ def predict_aggregate_turnover(agg_data: dict):
         }
         
     except Exception as e:
-        print(f"Aggregate predict error: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"Aggregate predict error: {e}", exc_info=True)
         return {
             "prediction": 0.0,
             "shap_values": {}

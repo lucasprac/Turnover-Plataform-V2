@@ -47,7 +47,46 @@ class TrainStatusResponse(BaseModel):
     is_training: bool
     progress: int
     message: str
+    progress: int
+    message: str
     status: str
+
+class MetricsResponse(BaseModel):
+    one_year: dict | None
+    five_year: dict | None
+
+@router.get("/train/metrics", response_model=MetricsResponse)
+def get_model_metrics():
+    """
+    Retrieve performance metrics for the trained XGBoost models.
+    """
+    metrics = {
+        "one_year": None,
+        "five_year": None
+    }
+    
+    # Load One Year Metrics
+    try:
+        if one_year_model.load_one_year_model():
+             artifact = one_year_model.load_one_year_model()
+             if artifact and 'metrics' in artifact:
+                 metrics['one_year'] = artifact['metrics']
+    except Exception as e:
+        print(f"Error loading one year metrics: {e}")
+
+    # Load Five Year Metrics
+    try:
+        # Load directly as there isn't a helper like load_one_year_model exposed easily or consistent
+        import os
+        import joblib
+        if os.path.exists(five_year_model.MODEL_PATH):
+             artifact = joblib.load(five_year_model.MODEL_PATH)
+             if artifact and 'metrics' in artifact:
+                 metrics['five_year'] = artifact['metrics']
+    except Exception as e:
+        print(f"Error loading five year metrics: {e}")
+        
+    return metrics
 
 @router.get("/train/status", response_model=TrainStatusResponse)
 def get_training_status():
@@ -59,7 +98,7 @@ def get_training_status():
     }
 
 @router.post("/train", response_model=TrainResponse)
-def trigger_training():
+def trigger_training(current_user: UserInfo = Depends(get_current_user)):
     """
     Triggers the training process for both models.
     """
@@ -105,7 +144,7 @@ def trigger_training():
     return {"message": "Training started in background.", "status": "success"}
 
 @router.post("/predict/individual", response_model=IndividualPrediction)
-def predict_individual_endpoint(input_data: IndividualInput):
+def predict_individual_endpoint(input_data: IndividualInput, current_user: UserInfo = Depends(get_current_user)):
     try:
         df = load_data()
         if df is None:
@@ -141,7 +180,7 @@ def predict_individual_endpoint(input_data: IndividualInput):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/predict/aggregate", response_model=AggregatePrediction)
-def predict_aggregate_endpoint(filters: AggregateFilters):
+def predict_aggregate_endpoint(filters: AggregateFilters, current_user: UserInfo = Depends(get_current_user)):
     try:
         df = load_data()
         if df is None:
@@ -298,3 +337,401 @@ def get_dashboard_data_endpoint():
     except Exception as e:
         print(f"Error serving dashboard data: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
+# BAYESIAN PREDICTION SYSTEM (Independent from XGBoost)
+# =============================================================================
+
+# --- Bayesian Data Models ---
+
+class CredibleIntervals(BaseModel):
+    ci_50: list[float]
+    ci_80: list[float]
+    ci_95: list[float]
+
+class BayesianUncertainty(BaseModel):
+    mean: float
+    std: float
+    credible_intervals: CredibleIntervals
+    samples: list[float] = []
+    risk_band: str  # "High", "Medium", "Low", "Uncertain"
+
+class BayesianIndividualPrediction(BaseModel):
+    mean: float
+    std: float
+    credible_intervals: dict
+    samples: list[float] = []
+    risk_band: str
+    computation_time: float | None = None
+    method: str | None = None
+
+class BayesianAggregatePrediction(BaseModel):
+    predicted_turnover_count: float
+    total_in_cohort: int
+    cohort_risk_rate: float
+    uncertainty: BayesianUncertainty
+    computation_time: float | None = None
+    method: str | None = None
+
+class BayesianTrainRequest(BaseModel):
+    pass  # No parameters needed - always uses NUTS
+
+
+# --- Bayesian Training Manager ---
+
+class BayesianTrainingManager:
+    """Track Bayesian model training status."""
+    def __init__(self):
+        self.is_training = False
+        self.progress = 0
+        self.message = ""
+        self.status = "idle"
+    
+    def start_training(self):
+        self.is_training = True
+        self.progress = 0
+        self.message = "Starting Bayesian training..."
+        self.status = "training"
+    
+    def update_progress(self, progress: int, message: str):
+        self.progress = progress
+        self.message = message
+    
+    def complete_training(self):
+        self.is_training = False
+        self.progress = 100
+        self.message = "Bayesian training complete"
+        self.status = "complete"
+    
+    def fail_training(self, error: str):
+        self.is_training = False
+        self.message = f"Training failed: {error}"
+        self.status = "error"
+
+bayesian_training_manager = BayesianTrainingManager()
+
+
+# --- Bayesian Endpoints ---
+
+@router.get("/train/bayesian/status")
+def get_bayesian_training_status():
+    """Get Bayesian model training status."""
+    return {
+        "is_training": bayesian_training_manager.is_training,
+        "progress": bayesian_training_manager.progress,
+        "message": bayesian_training_manager.message,
+        "status": bayesian_training_manager.status
+    }
+
+
+@router.post("/train/bayesian", response_model=TrainResponse)
+def trigger_bayesian_training(request: BayesianTrainRequest = BayesianTrainRequest(), current_user: UserInfo = Depends(get_current_user)):
+    """
+    Train the Bayesian turnover model using NUTS (full MCMC).
+    
+    NUTS provides accurate posterior estimates for uncertainty quantification.
+    Training takes approximately 5-15 minutes depending on hardware.
+    """
+    if bayesian_training_manager.is_training:
+        raise HTTPException(status_code=400, detail="Bayesian training already in progress.")
+    
+    from backend.ml import bayesian_turnover_model
+    
+    def train_job():
+        try:
+            bayesian_training_manager.start_training()
+            
+            def progress_callback(p, msg):
+                bayesian_training_manager.update_progress(p, msg)
+            
+            bayesian_turnover_model.train_bayesian_model(
+                progress_callback=progress_callback
+            )
+            
+            bayesian_training_manager.complete_training()
+        except Exception as e:
+            bayesian_training_manager.fail_training(str(e))
+            print(f"Bayesian training error: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    threading.Thread(target=train_job).start()
+    return {
+        "message": "Bayesian training started with NUTS inference",
+        "status": "success"
+    }
+
+
+@router.post("/predict/individual/bayesian", response_model=BayesianIndividualPrediction)
+def predict_individual_bayesian(input_data: IndividualInput, current_user: UserInfo = Depends(get_current_user)):
+    """
+    Predict turnover probability for an individual using Bayesian model.
+    
+    Returns probability distribution with credible intervals and uncertainty.
+    """
+    try:
+        from backend.ml import bayesian_turnover_model
+        
+        df = load_data()
+        if df is None:
+            raise HTTPException(status_code=400, detail="Data not available")
+        
+        # Find employee
+        employee_row = df[df['id'] == input_data.employee_id]
+        if employee_row.empty:
+            raise HTTPException(status_code=404, detail="Employee not found")
+        
+        data_dict = employee_row.iloc[0].to_dict()
+        data_dict = enrich_features(data_dict)
+        data_dict = {k: (v if pd.notna(v) else 0) for k, v in data_dict.items()}
+        
+        result = bayesian_turnover_model.predict_bayesian_individual(data_dict)
+        
+        if result is None:
+            raise HTTPException(status_code=500, detail="Prediction failed")
+        
+        return result
+        
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        print(f"Bayesian prediction error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/predict/aggregate/bayesian", response_model=BayesianAggregatePrediction)
+def predict_aggregate_bayesian(filters: AggregateFilters, current_user: UserInfo = Depends(get_current_user)):
+    """
+    Predict aggregate turnover for a cohort using Bayesian model.
+    
+    Returns probability distribution for total expected turnover.
+    """
+    try:
+        from backend.ml import bayesian_turnover_model
+        
+        df = load_data()
+        if df is None:
+            raise HTTPException(status_code=400, detail="Data not available")
+        
+        # Apply Filters (same logic as XGBoost endpoint)
+        filtered_df = df.copy()
+        
+        if filters.education_level and filters.education_level != "All":
+            filtered_df = filtered_df[filtered_df['a6_education_level'] == filters.education_level]
+        if filters.gender and filters.gender != "All":
+            filtered_df = filtered_df[filtered_df['a1_gender'] == filters.gender]
+        
+        if filters.age_group:
+            if filters.age_group == 'lt_25':
+                filtered_df = filtered_df[filtered_df['a2_age'] < 25]
+            elif filters.age_group == '25_to_35':
+                filtered_df = filtered_df[(filtered_df['a2_age'] >= 25) & (filtered_df['a2_age'] < 35)]
+            elif filters.age_group == '35_to_45':
+                filtered_df = filtered_df[(filtered_df['a2_age'] >= 35) & (filtered_df['a2_age'] < 45)]
+            elif filters.age_group == '45_to_55':
+                filtered_df = filtered_df[(filtered_df['a2_age'] >= 45) & (filtered_df['a2_age'] < 55)]
+            elif filters.age_group == 'plus_55':
+                filtered_df = filtered_df[filtered_df['a2_age'] >= 55]
+        
+        if filters.tenure_group:
+            if filters.tenure_group == 'lt_1yr':
+                filtered_df = filtered_df[filtered_df['B10_Tenure_in_month'] < 12]
+            elif filters.tenure_group == '1_to_3yr':
+                filtered_df = filtered_df[(filtered_df['B10_Tenure_in_month'] >= 12) & (filtered_df['B10_Tenure_in_month'] < 36)]
+            elif filters.tenure_group == '3_to_5yr':
+                filtered_df = filtered_df[(filtered_df['B10_Tenure_in_month'] >= 36) & (filtered_df['B10_Tenure_in_month'] < 60)]
+            elif filters.tenure_group == '5_to_10yr':
+                filtered_df = filtered_df[(filtered_df['B10_Tenure_in_month'] >= 60) & (filtered_df['B10_Tenure_in_month'] < 120)]
+            elif filters.tenure_group == 'plus_10yr':
+                filtered_df = filtered_df[filtered_df['B10_Tenure_in_month'] >= 120]
+        
+        if filtered_df.empty:
+            return {
+                "predicted_turnover_count": 0.0,
+                "total_in_cohort": 0,
+                "cohort_risk_rate": 0.0,
+                "uncertainty": {
+                    "mean": 0.0,
+                    "std": 0.0,
+                    "credible_intervals": {"ci_50": [0, 0], "ci_80": [0, 0], "ci_95": [0, 0]},
+                    "samples": [],
+                    "risk_band": "Low"
+                }
+            }
+        
+        # Prepare cohort data
+        cohort_data = []
+        for _, row in filtered_df.iterrows():
+            data_dict = row.to_dict()
+            data_dict = enrich_features(data_dict)
+            data_dict = {k: (v if pd.notna(v) else 0) for k, v in data_dict.items()}
+            cohort_data.append(data_dict)
+        
+        result = bayesian_turnover_model.predict_bayesian_aggregate(cohort_data)
+        
+        return result
+        
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        print(f"Bayesian aggregate error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
+# BAYESIAN INTERPRETABILITY ENDPOINTS (Native Bayesian Analysis)
+# =============================================================================
+
+@router.get("/bayesian/parameter-beliefs")
+def get_parameter_beliefs():
+    """
+    Get posterior distributions for all model parameters.
+    
+    Returns what the model believes about each coefficient's effect:
+    - Mean, std, credible intervals
+    - Effect direction (positive/negative/uncertain)
+    - Sorted by absolute effect size
+    """
+    try:
+        from backend.ml.bayesian_interpretability import get_bayesian_interpretability
+        
+        interpreter = get_bayesian_interpretability()
+        return interpreter.get_parameter_beliefs()
+        
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        print(f"Parameter beliefs error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/bayesian/posterior-predictive")
+def generate_posterior_predictive(n_samples: int = 100):
+    """
+    Generate simulated data from the posterior predictive distribution.
+    
+    Shows what outcomes the model would predict, accounting for both
+    parameter uncertainty AND data variability.
+    """
+    try:
+        from backend.ml.bayesian_interpretability import get_bayesian_interpretability
+        import os
+        import joblib
+        
+        interpreter = get_bayesian_interpretability()
+        
+        # Load test data
+        preprocessor_path = os.path.join(os.path.dirname(__file__), 
+                                          "../../ml/bayesian_preprocessor.pkl")
+        if not os.path.exists(preprocessor_path):
+            raise FileNotFoundError("Model not trained. Please train Bayesian model first.")
+        
+        artifact = joblib.load(preprocessor_path)
+        X_test = artifact.get("X_test")
+        
+        if X_test is None:
+            raise HTTPException(status_code=400, 
+                              detail="Test data not available. Please retrain model.")
+        
+        result = interpreter.generate_posterior_predictive(X_test, n_samples=n_samples)
+        return result
+        
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        print(f"Posterior predictive error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/bayesian/uncertainty-decomposition")
+def compute_uncertainty_decomposition():
+    """
+    Decompose prediction uncertainty into epistemic and aleatoric components.
+    
+    - Epistemic: uncertainty about model parameters (reducible with more data)
+    - Aleatoric: inherent randomness in outcomes (irreducible)
+    """
+    try:
+        from backend.ml.bayesian_interpretability import get_bayesian_interpretability
+        import os
+        import joblib
+        
+        interpreter = get_bayesian_interpretability()
+        
+        # Load test data
+        preprocessor_path = os.path.join(os.path.dirname(__file__), 
+                                          "../../ml/bayesian_preprocessor.pkl")
+        if not os.path.exists(preprocessor_path):
+            raise FileNotFoundError("Model not trained. Please train Bayesian model first.")
+        
+        artifact = joblib.load(preprocessor_path)
+        X_test = artifact.get("X_test")
+        
+        if X_test is None:
+            raise HTTPException(status_code=400, 
+                              detail="Test data not available. Please retrain model.")
+        
+        result = interpreter.compute_uncertainty_decomposition(X_test)
+        return result
+        
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        print(f"Uncertainty decomposition error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/bayesian/ppc")
+def run_posterior_predictive_check(n_replications: int = 500):
+    """
+    Run Posterior Predictive Checking (PPC) for model validation.
+    
+    Compares observed data to data generated from the model to assess fit.
+    Returns discrepancy measures and p-values.
+    
+    Reference: studies/ppc.md
+    """
+    try:
+        from backend.ml.bayesian_interpretability import get_bayesian_interpretability
+        import os
+        import joblib
+        
+        interpreter = get_bayesian_interpretability()
+        
+        # Load test data
+        preprocessor_path = os.path.join(os.path.dirname(__file__), 
+                                          "../../ml/bayesian_preprocessor.pkl")
+        if not os.path.exists(preprocessor_path):
+            raise FileNotFoundError("Model not trained. Please train Bayesian model first.")
+        
+        artifact = joblib.load(preprocessor_path)
+        X_test = artifact.get("X_test")
+        y_test = artifact.get("y_test")
+        
+        if X_test is None or y_test is None:
+            raise HTTPException(status_code=400, 
+                              detail="Test data not available. Please retrain model.")
+        
+        result = interpreter.posterior_predictive_check(X_test, y_test, 
+                                                        n_replications=n_replications)
+        return result
+        
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        print(f"PPC error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+

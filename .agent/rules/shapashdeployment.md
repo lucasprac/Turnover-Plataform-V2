@@ -1,6 +1,6 @@
 ---
 trigger: model_decision
-description: When was workking with shapash
+description: when you use it shapash, be guide by this document
 ---
 
 Shapash for Production & SmartPredictor:

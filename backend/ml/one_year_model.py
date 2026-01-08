@@ -1,13 +1,18 @@
 import pandas as pd
 import numpy as np
 import xgboost as xgb
+import logging
 
 import matplotlib.pyplot as plt
 import joblib
 import os
 from sklearn.model_selection import StratifiedKFold, RandomizedSearchCV
 from sklearn.feature_selection import SelectFromModel
-from sklearn.metrics import accuracy_score, classification_report, roc_auc_score
+from sklearn.metrics import accuracy_score, classification_report, roc_auc_score, f1_score, mean_squared_error
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 # Lazy load preprocessing to avoid circular dependency issues if any
 from .preprocessing import load_and_preprocess_one_year, feature_engineering
@@ -20,27 +25,27 @@ from shapash import SmartExplainer
 from shapash.utils.load_smartpredictor import load_smartpredictor
 from backend.ml import shapash_config
 
-MODEL_PATH = "one_year_model.xgb"
-# Force Reload Fix
+MODEL_PATH = os.path.join(os.path.dirname(__file__), "one_year_model.xgb")
+
 
 def train_one_year_model(data_path="synthetic_turnover_data.csv", save_model=True, progress_callback=None):
     def update(p, msg):
         if progress_callback:
             progress_callback(p, msg)
             
-    print("--- Training One-Year Model (Individual Level) ---")
+    logger.info("--- Training One-Year Model (Individual Level) ---")
     update(0, "Starting Individual Model...")
     
     # 1. Load and Preprocess
     df = pd.read_csv(data_path)
     X_train_raw, X_test_raw, y_train, y_test, feature_names_raw, preprocessor = load_and_preprocess_one_year(df)
     
-    print(f"Initial Feature Count: {X_train_raw.shape[1]}")
+    logger.info(f"Initial Feature Count: {X_train_raw.shape[1]}")
     update(10, "Data loaded and preprocessed")
 
     # 2. Feature Selection (Civilizing Kit: Reduce Noise)
     # Using XGBoost with L1 regularization (Lasso-like) to select features
-    print("\nPerforming Feature Selection (SelectFromModel)...")
+    logger.info("Performing Feature Selection (SelectFromModel)...")
     update(20, "Selecting features...")
     selection_model = xgb.XGBClassifier(
         objective='binary:logistic',
@@ -65,12 +70,12 @@ def train_one_year_model(data_path="synthetic_turnover_data.csv", save_model=Tru
     X_train_selected = pd.DataFrame(selector.transform(X_train_raw), columns=feature_names_selected)
     X_test_selected = pd.DataFrame(selector.transform(X_test_raw), columns=feature_names_selected)
     
-    print(f"Selected Feature Count: {X_train_selected.shape[1]}")
-    print(f"Dropped {len(feature_names_raw) - len(feature_names_selected)} features.")
+    logger.info(f"Selected Feature Count: {X_train_selected.shape[1]}")
+    logger.info(f"Dropped {len(feature_names_raw) - len(feature_names_selected)} features.")
     update(40, "Features selected")
 
     # 3. Hyperparameter Optimization (Civilizing Kit: GridSearch + CV)
-    print("\nStarting Hyperparameter Optimization (RandomizedSearch)...")
+    logger.info("Starting Hyperparameter Optimization (RandomizedSearch)...")
     update(50, "Optimizing hyperparameters...")
     
     # Grid including Regularization (L1/L2)
@@ -109,13 +114,13 @@ def train_one_year_model(data_path="synthetic_turnover_data.csv", save_model=Tru
     
     search.fit(X_train_selected, y_train)
     
-    print(f"Best CV ROC-AUC: {search.best_score_:.4f}")
-    print(f"Best Params: {search.best_params_}")
+    logger.info(f"Best CV ROC-AUC: {search.best_score_:.4f}")
+    logger.info(f"Best Params: {search.best_params_}")
     update(80, "Model optimized")
     
     model_base = search.best_estimator_
     
-    print("\nApplying Frank-Wolfe Consistent Algorithm for Imbalanced Multiclass/Binary...")
+    logger.info("Applying Frank-Wolfe Consistent Algorithm for Imbalanced Multiclass/Binary...")
     # Wrap for optimal G-Mean (Turnover vs Stay)
     model = FrankWolfeMulticlass(base_estimator=model_base, max_iter=50)
     model.fit(X_train_selected, y_train)
@@ -131,21 +136,27 @@ def train_one_year_model(data_path="synthetic_turnover_data.csv", save_model=Tru
     acc_test = accuracy_score(y_test, y_pred_test)
     auc_train = roc_auc_score(y_train, y_prob_train)
     auc_test = roc_auc_score(y_test, y_prob_test)
+    
+    # New Metrics
+    f1_test = f1_score(y_test, y_pred_test)
+    mse_test = mean_squared_error(y_test, y_prob_test)
+    rmse_test = np.sqrt(mse_test)
 
-    print("\n--- Overfitting Check (Train vs Test) ---")
-    print(f"Accuracy -> Train: {acc_train:.4f} | Test: {acc_test:.4f} (Gap: {abs(acc_train - acc_test):.4f})")
-    print(f"ROC AUC  -> Train: {auc_train:.4f} | Test: {auc_test:.4f} (Gap: {abs(auc_train - auc_test):.4f})")
+    logger.info("--- Overfitting Check (Train vs Test) ---")
+    logger.info(f"Accuracy -> Train: {acc_train:.4f} | Test: {acc_test:.4f} (Gap: {abs(acc_train - acc_test):.4f})")
+    logger.info(f"ROC AUC  -> Train: {auc_train:.4f} | Test: {auc_test:.4f} (Gap: {abs(auc_train - auc_test):.4f})")
     
     if abs(auc_train - auc_test) > 0.15:
-        print("WARNING: High Performance Gap detected (>15%). Model may be OVERTUNNED (Overfitting).")
+        logger.warning("High Performance Gap detected (>15%). Model may be OVERTUNNED (Overfitting).")
     else:
-        print("Model consistency looks good.")
+        logger.info("Model consistency looks good.")
 
-    print("\nModel Evaluation (Test Set):")
-    print(f"Final Accuracy: {acc_test:.4f}")
-    print(f"Final ROC AUC: {auc_test:.4f}")
-    print("\nClassification Report (Test Set):")
-    print(classification_report(y_test, y_pred_test))
+    logger.info("Model Evaluation (Test Set):")
+    logger.info(f"Final Accuracy: {acc_test:.4f}")
+    logger.info(f"Final ROC AUC: {auc_test:.4f}")
+    logger.info(f"Final F1 Score: {f1_test:.4f}")
+    logger.info(f"Final RMSE: {rmse_test:.4f}")
+    logger.info(f"Classification Report (Test Set):\n{classification_report(y_test, y_pred_test)}")
     update(90, "Model evaluated")
     
     # 5. Interpretability (Civilizing Kit: SHAP)
@@ -159,14 +170,19 @@ def train_one_year_model(data_path="synthetic_turnover_data.csv", save_model=Tru
             'model': model,
             'preprocessor': preprocessor,
             'selector': selector,
-            'feature_names': feature_names_selected
+            'feature_names': feature_names_selected,
+            'metrics': {
+                'accuracy': float(acc_test),
+                'roc_auc': float(auc_test),
+                'f1_score': float(f1_test),
+                'rmse': float(rmse_test)
+            }
         }
         joblib.dump(artifact, MODEL_PATH)
-        joblib.dump(artifact, MODEL_PATH)
-        print(f"Model and artifacts saved to {MODEL_PATH}")
+        logger.info(f"Model and artifacts saved to {MODEL_PATH}")
 
         # --- Shapash Integration ---
-        print("\nCreating Shapash SmartPredictor...")
+        logger.info("Creating Shapash SmartPredictor...")
         try:
             # Reconstruct DataFrames with selected features for Shapash
             X_test_df = pd.DataFrame(X_test_selected, columns=feature_names_selected)
@@ -203,14 +219,14 @@ def train_one_year_model(data_path="synthetic_turnover_data.csv", save_model=Tru
             else:
                  model_to_explain = model
 
-            print(f"DEBUG: X_test_df shape: {X_test_df.shape}")
-            print(f"DEBUG: valid_features_dict length: {len(valid_features_dict)}")
+            logger.debug(f"X_test_df shape: {X_test_df.shape}")
+            logger.debug(f"valid_features_dict length: {len(valid_features_dict)}")
             if hasattr(model_to_explain, 'n_features_in_'):
-                 print(f"DEBUG: Model n_features_in_: {model_to_explain.n_features_in_}")
+                 logger.debug(f"Model n_features_in_: {model_to_explain.n_features_in_}")
 
             # Define function to run pipeline
             def run_shapash_pipeline(f_dict, p_processing, f_groups, suffix="full"):
-                print(f"--- Running Shapash Pipeline: {suffix} ---")
+                logger.info(f"--- Running Shapash Pipeline: {suffix} ---")
                 xpl = SmartExplainer(
                     model=model_to_explain,
                     features_dict=f_dict,
@@ -218,31 +234,27 @@ def train_one_year_model(data_path="synthetic_turnover_data.csv", save_model=Tru
                     postprocessing=p_processing,
                     features_groups=f_groups
                 )
-                print(f"DEBUG: X_test_df shape: {X_test_df.shape}")
-                print(f"DEBUG: y_pred_series shape: {y_pred_series.shape}")
+                logger.debug(f"X_test_df shape: {X_test_df.shape}")
+                logger.debug(f"y_pred_series shape: {y_pred_series.shape}")
                 xpl.compile(x=X_test_df, y_pred=y_pred_series)
                 predictor = xpl.to_smartpredictor()
                 predictor.save("backend/ml/one_year_predictor.pkl")
-                print(f"SmartPredictor saved successfully ({suffix}).")
+                logger.info(f"SmartPredictor saved successfully ({suffix}).")
 
             # Try Full Config
             try:
                 run_shapash_pipeline(valid_features_dict, valid_postprocessing, valid_groups, "full")
             except Exception as e_full:
-                print(f"WARNING: Full Shapash pipeline failed: {e_full}")
+                logger.warning(f"Full Shapash pipeline failed: {e_full}")
                 try:
                     # Try Minimal Config (No dicts that check lengths)
                     run_shapash_pipeline(None, None, None, "minimal")
                 except Exception as e_min:
-                    print(f"ERROR: Minimal Shapash pipeline also failed: {e_min}")
-                    import traceback
-                    traceback.print_exc()
+                    logger.error(f"Minimal Shapash pipeline also failed: {e_min}", exc_info=True)
 
             
         except Exception as e:
-            print(f"Error creating/saving Shapash predictor: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.error(f"Error creating/saving Shapash predictor: {e}", exc_info=True)
 
     
     update(100, "One Year Model Complete")

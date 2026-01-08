@@ -1,10 +1,14 @@
 
 import pandas as pd
 import numpy as np
+import logging
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.base import BaseEstimator, TransformerMixin
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 class TurnoverPreprocessor(BaseEstimator, TransformerMixin):
     def __init__(self):
@@ -100,12 +104,12 @@ def load_and_preprocess_one_year(df):
             # Check if any value is a stringified list like '[0.5]'
             # DEBUG and Cleanup
             if df[col].astype(str).str.contains(r'[\[\]]', regex=True).any():
-                 print(f"DEBUG: Found brackets in column {col}. Cleaning...")
+                 logger.debug(f"Found brackets in column {col}. Cleaning...")
                  # Aggressive cleaning: replace brackets and quotes globally
                  df[col] = df[col].astype(str).str.replace('[', '', regex=False).str.replace(']', '', regex=False).str.replace("'", '', regex=False).str.replace('"', '', regex=False)
                  # Force numeric
                  df[col] = pd.to_numeric(df[col], errors='coerce')
-                 print(f"DEBUG: Column {col} cleaned. Nulls: {df[col].isnull().sum()}")
+                 logger.debug(f"Column {col} cleaned. Nulls: {df[col].isnull().sum()}")
 
     df = feature_engineering(df)
 

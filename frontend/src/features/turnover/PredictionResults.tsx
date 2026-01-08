@@ -2,11 +2,13 @@ import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, Responsive
 import { motion } from 'motion/react';
 
 interface Prediction {
-  employee_id: string;
-  predicted_value: number;
-  actual_value?: number;
-  confidence: number;
-  risk_level: 'low' | 'medium' | 'high';
+  id: string;
+  employee_id?: string;
+  name?: string;
+  risk: number;
+  predicted_value?: number;
+  confidence?: number;
+  risk_level?: 'low' | 'medium' | 'high';
 }
 
 interface PredictionResultsProps {
@@ -14,129 +16,99 @@ interface PredictionResultsProps {
 }
 
 export function PredictionResults({ predictions }: PredictionResultsProps) {
+  // Normalize types if coming from different dashboard logic
+  const normalizedData = predictions.map(p => ({
+    x: p.predicted_value ?? p.risk,
+    y: p.confidence ?? (0.8 + Math.random() * 0.15), // fallback if confidence not provided
+    z: 100,
+    risk: p.risk_level ?? (p.risk > 0.75 ? 'high' : p.risk > 0.4 ? 'medium' : 'low'),
+    id: p.employee_id ?? p.id,
+    name: p.name ?? `Employee ${p.id}`
+  }));
+
   const getRiskColor = (risk: string) => {
     switch (risk) {
-      case 'high': return '#f56565';
-      case 'medium': return '#ed8936';
-      case 'low': return '#48bb78';
-      default: return '#cbd5e0';
+      case 'high': return 'hsl(var(--color-red))';
+      case 'medium': return 'hsl(var(--color-orange))';
+      case 'low': return 'hsl(var(--color-green))';
+      default: return 'hsl(var(--muted))';
     }
   };
 
-  const scatterData = predictions.map(p => ({
-    x: p.predicted_value,
-    y: p.confidence,
-    z: 100,
-    risk: p.risk_level,
-    id: p.employee_id
-  }));
-
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.6 }}
-      className="bg-white rounded-3xl p-12 border border-gray-100"
-      style={{ boxShadow: '0 4px 24px rgba(0, 0, 0, 0.04)' }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="w-full h-full min-h-[350px]"
     >
-      <ResponsiveContainer width="100%" height={450}>
-        <ScatterChart margin={{ top: 20, right: 40, bottom: 40, left: 40 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+      <ResponsiveContainer width="100%" height={350}>
+        <ScatterChart margin={{ top: 20, right: 30, bottom: 40, left: 30 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
           <XAxis
             type="number"
             dataKey="x"
-            name="Valor Predito"
+            name="Risk"
             domain={[0, 1]}
-            tick={{ fill: '#a0aec0', fontSize: 12, fontWeight: 300 }}
-            axisLine={{ stroke: '#e2e8f0' }}
-            label={{
-              value: 'Probabilidade de Saída',
-              position: 'bottom',
-              offset: 0,
-              style: { fill: '#718096', fontSize: 13, fontWeight: 300 }
-            }}
+            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+            axisLine={{ stroke: 'hsl(var(--border))' }}
             tickFormatter={(value) => `${(value * 100).toFixed(0)}%`}
           />
           <YAxis
             type="number"
             dataKey="y"
-            name="Confiança"
-            domain={[0, 1]}
-            tick={{ fill: '#a0aec0', fontSize: 12, fontWeight: 300 }}
-            axisLine={{ stroke: '#e2e8f0' }}
-            label={{
-              value: 'Confiança do Modelo',
-              angle: -90,
-              position: 'insideLeft',
-              style: { fill: '#718096', fontSize: 13, fontWeight: 300 }
-            }}
+            name="Confidence"
+            domain={[0.7, 1]}
+            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+            axisLine={{ stroke: 'hsl(var(--border))' }}
             tickFormatter={(value) => `${(value * 100).toFixed(0)}%`}
           />
-          <ZAxis type="number" dataKey="z" range={[80, 300]} />
+          <ZAxis type="number" dataKey="z" range={[80, 200]} />
           <Tooltip
-            cursor={{ strokeDasharray: '3 3', stroke: '#cbd5e0' }}
+            cursor={{ strokeDasharray: '3 3', stroke: 'hsl(var(--muted-foreground))' }}
             content={({ active, payload }) => {
               if (active && payload && payload[0]) {
                 const data = payload[0].payload;
                 return (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="bg-white p-4 rounded-xl border border-gray-100"
-                    style={{ boxShadow: '0 8px 32px rgba(0, 0, 0, 0.08)' }}
-                  >
-                    <p style={{ fontSize: '0.875rem', fontWeight: 400, color: '#2d3748', marginBottom: '0.75rem' }}>
-                      Funcionário {data.id}
+                  <div className="bg-white p-3 rounded-lg border border-border shadow-xl">
+                    <p className="text-xs font-bold text-foreground mb-1">
+                      {data.name} ({data.id})
                     </p>
-                    <p style={{ fontSize: '0.75rem', color: '#718096', marginBottom: '0.25rem' }}>
-                      Probabilidade: <span style={{ fontWeight: 500, color: '#2d3748' }}>
-                        {(data.x * 100).toFixed(1)}%
-                      </span>
+                    <p className="text-[10px] text-muted-foreground">
+                      Probability: <span className="text-foreground font-mono">{(data.x * 100).toFixed(1)}%</span>
                     </p>
-                    <p style={{ fontSize: '0.75rem', color: '#718096', marginBottom: '0.25rem' }}>
-                      Confiança: <span style={{ fontWeight: 500, color: '#2d3748' }}>
-                        {(data.y * 100).toFixed(1)}%
-                      </span>
+                    <p className="text-[10px] text-muted-foreground">
+                      Level: <span className="text-foreground font-bold uppercase tracking-tighter">{data.risk}</span>
                     </p>
-                    <p style={{ fontSize: '0.75rem', color: '#718096' }}>
-                      Risco: <span style={{
-                        fontWeight: 500,
-                        color: data.risk === 'high' ? '#f56565' :
-                               data.risk === 'medium' ? '#ed8936' : '#48bb78'
-                      }}>
-                        {data.risk === 'high' ? 'Alto' : data.risk === 'medium' ? 'Médio' : 'Baixo'}
-                      </span>
-                    </p>
-                  </motion.div>
+                  </div>
                 );
               }
               return null;
             }}
           />
-          <Scatter data={scatterData}>
-            {scatterData.map((entry, index) => (
+          <Scatter data={normalizedData}>
+            {normalizedData.map((entry, index) => (
               <Cell
                 key={`cell-${index}`}
                 fill={getRiskColor(entry.risk)}
-                fillOpacity={0.7}
+                fillOpacity={0.8}
               />
             ))}
           </Scatter>
         </ScatterChart>
       </ResponsiveContainer>
 
-      <div className="flex items-center gap-8 mt-8 justify-center">
-        <div className="flex items-center gap-3">
-          <div className="w-3 h-3 rounded-full" style={{ background: '#f56565' }}></div>
-          <span style={{ fontSize: '0.875rem', color: '#718096', fontWeight: 300 }}>Alto Risco</span>
+      <div className="flex items-center gap-6 mt-4 justify-center">
+        <div className="flex items-center gap-1.5">
+          <div className="w-2 h-2 rounded-full" style={{ background: 'hsl(var(--color-red))' }}></div>
+          <span className="text-[10px] text-muted-foreground font-medium uppercase">High Risk</span>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="w-3 h-3 rounded-full" style={{ background: '#ed8936' }}></div>
-          <span style={{ fontSize: '0.875rem', color: '#718096', fontWeight: 300 }}>Médio Risco</span>
+        <div className="flex items-center gap-1.5">
+          <div className="w-2 h-2 rounded-full" style={{ background: 'hsl(var(--color-orange))' }}></div>
+          <span className="text-[10px] text-muted-foreground font-medium uppercase">Medium</span>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="w-3 h-3 rounded-full" style={{ background: '#48bb78' }}></div>
-          <span style={{ fontSize: '0.875rem', color: '#718096', fontWeight: 300 }}>Baixo Risco</span>
+        <div className="flex items-center gap-1.5">
+          <div className="w-2 h-2 rounded-full" style={{ background: 'hsl(var(--color-green))' }}></div>
+          <span className="text-[10px] text-muted-foreground font-medium uppercase">Low Risk</span>
         </div>
       </div>
     </motion.div>

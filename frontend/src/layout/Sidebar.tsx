@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, User, Users, Settings, LayoutDashboard, Zap } from 'lucide-react';
+import { Home, User, Users, Settings, LayoutDashboard, Zap, Brain } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Link, useLocation } from 'react-router-dom';
@@ -93,6 +93,18 @@ export const Sidebar: React.FC = () => {
                     >
                         <Zap className="w-4 h-4" />
                         Performance
+                    </Link>
+                    <Link
+                        to="/bayesian-analysis"
+                        className={cn(
+                            "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                            isActive('/bayesian-analysis')
+                                ? "bg-secondary text-primary"
+                                : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
+                        )}
+                    >
+                        <Brain className="w-4 h-4" />
+                        Bayesian Analysis
                     </Link>
                 </nav>
             </div>

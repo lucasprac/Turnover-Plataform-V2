@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
-import ReactDOM from 'react-dom/client';
 import { Sidebar } from '@/layout/Sidebar';
 import '@/global.css';
 import axios from 'axios';
-import { AggregatePrediction } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Loader2, Users } from 'lucide-react';
+import { AggregatePrediction, PredictionSystem, BayesianAggregatePrediction } from '@/types';
+import { PredictionSystemToggle } from '@/components/PredictionSystemToggle';
+import { UncertaintyDisplay } from '@/components/UncertaintyDisplay';
+import { ComputationWarning } from '@/components/ComputationWarning';
 
 interface AggregateFilters {
     education_level: string;
@@ -27,6 +29,8 @@ export const AggregatePage = () => {
     });
 
     const [result, setResult] = useState<AggregatePrediction | null>(null);
+    const [bayesianResult, setBayesianResult] = useState<BayesianAggregatePrediction | null>(null);
+    const [predictionSystem, setPredictionSystem] = useState<PredictionSystem>('xgboost');
     const [loading, setLoading] = useState(false);
 
     const handleSelectChange = (name: keyof AggregateFilters, value: string) => {
@@ -36,6 +40,7 @@ export const AggregatePage = () => {
     const handlePredict = async () => {
         setLoading(true);
         setResult(null);
+        setBayesianResult(null);
         try {
             // Convert empty strings to None/null for backend if needed or handle logic there
             // Backend expects strings or None
@@ -45,8 +50,14 @@ export const AggregatePage = () => {
                 age_group: filters.age_group || null,
                 tenure_group: filters.tenure_group || null
             };
-            const resp = await axios.post('/api/predict/aggregate', payload);
-            setResult(resp.data);
+
+            if (predictionSystem === 'xgboost') {
+                const resp = await axios.post('/api/predict/aggregate', payload);
+                setResult(resp.data);
+            } else {
+                const resp = await axios.post('/api/predict/aggregate/bayesian', payload);
+                setBayesianResult(resp.data);
+            }
         } catch (e) {
             alert('Prediction failed. Train models first!');
         } finally {
@@ -65,9 +76,16 @@ export const AggregatePage = () => {
         <div className="flex bg-background min-h-screen font-sans text-foreground">
             <Sidebar />
             <main className="flex-1 ml-64 p-8">
-                <div className="mb-8">
-                    <h2 className="text-3xl font-light text-foreground tracking-tight">Group Forecast (5-Year)</h2>
-                    <p className="text-muted-foreground font-light mt-1">Analyze turnover risk for specific workforce cohorts based on real data.</p>
+                <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h2 className="text-3xl font-light text-foreground tracking-tight">Group Forecast (5-Year)</h2>
+                        <p className="text-muted-foreground font-light mt-1">Analyze turnover risk for specific workforce cohorts based on real data.</p>
+                    </div>
+                    <PredictionSystemToggle
+                        value={predictionSystem}
+                        onChange={setPredictionSystem}
+                        disabled={loading}
+                    />
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -142,7 +160,13 @@ export const AggregatePage = () => {
 
                     {/* Right Column: Results */}
                     <div className="lg:col-span-2 flex flex-col justify-center">
-                        {result ? (
+                        {predictionSystem === 'bayesian' && loading && (
+                            <div className="mb-4">
+                                <ComputationWarning mode="nuts" isComputing={loading} />
+                            </div>
+                        )}
+
+                        {predictionSystem === 'xgboost' && result ? (
                             <div className="grid gap-6">
                                 <div className="grid grid-cols-2 gap-6">
                                     <Card className="flex flex-col items-center justify-center p-6 text-center">
@@ -198,6 +222,38 @@ export const AggregatePage = () => {
                                     </div>
                                 </Card>
                             </div>
+                        ) : predictionSystem === 'bayesian' && bayesianResult ? (
+                            <div className="grid gap-6">
+                                <div className="grid grid-cols-2 gap-6">
+                                    <Card className="flex flex-col items-center justify-center p-6 text-center">
+                                        <div className="mb-2 p-3 bg-primary/10 rounded-full text-primary">
+                                            <Users className="w-6 h-6" />
+                                        </div>
+                                        <div className="text-4xl font-bold text-foreground">{bayesianResult.total_in_cohort}</div>
+                                        <div className="text-sm text-muted-foreground mt-1">Employees in Cohort</div>
+                                    </Card>
+
+                                    <Card className="flex flex-col items-center justify-center p-6 text-center">
+                                        <div className="text-4xl font-bold text-primary">{Math.round(bayesianResult.predicted_turnover_count)}</div>
+                                        <div className="text-sm text-muted-foreground mt-1">Projected Departures (Mean)</div>
+                                    </Card>
+                                </div>
+
+                                <Card className="p-8">
+                                    <h3 className="text-lg font-medium mb-4">Turnover Probability Distribution</h3>
+                                    <UncertaintyDisplay
+                                        prediction={{
+                                            ...bayesianResult.uncertainty,
+                                            // Mapping metadata from result to the display object
+                                            computation_time: bayesianResult.computation_time,
+                                            method: bayesianResult.method
+                                        }}
+                                    />
+                                    <p className="text-sm text-muted-foreground mt-4 text-center">
+                                        Bayesian estimation of the aggregate risk rate for this cohort.
+                                    </p>
+                                </Card>
+                            </div>
                         ) : (
                             <Card className="h-full flex flex-col items-center justify-center p-12 text-center text-muted-foreground border-dashed bg-muted/20">
                                 <Users className="w-12 h-12 mb-4 opacity-20" />
@@ -213,5 +269,3 @@ export const AggregatePage = () => {
         </div>
     );
 };
-
-
