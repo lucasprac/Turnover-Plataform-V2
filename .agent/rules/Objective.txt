@@ -1,2 +1,0 @@
-Objective
-The objective of the program is to predict employee turnover using variables from different categories (e.g., demographic, contractual, and performance-related features; I will adapt the exact categories to my dataset). The goal is to build a performant model and provide model explainability for the business values at both global and individual levels, to support HR decision-making.
