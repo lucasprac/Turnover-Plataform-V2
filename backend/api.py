@@ -68,7 +68,6 @@ app.include_router(performance.router, prefix="/api", tags=["Legacy Performance"
 # =============================================================================
 # Demo Routes - Duplicate routes for demo mode (use synthetic data)
 # =============================================================================
-# Note: Demo routes use the same handlers but can be extended to always use synthetic data
 STATIC_DIR = Path(root_dir) / "static"
 
 if STATIC_DIR.exists():
@@ -123,8 +122,10 @@ async def serve_spa(full_path: str):
     - Otherwise, serve index.html for React Router to handle
     """
     # Check if it's a static file request
-    static_file = STATIC_DIR / full_path
-    if STATIC_DIR.exists() and static_file.exists() and static_file.is_file():
+    static_file = (STATIC_DIR / full_path).resolve()
+
+    # Security check: Ensure the file is within the static directory
+    if STATIC_DIR.exists() and static_file.is_relative_to(STATIC_DIR) and static_file.exists() and static_file.is_file():
         return FileResponse(static_file)
     
     # For all other routes, serve index.html (SPA behavior)
