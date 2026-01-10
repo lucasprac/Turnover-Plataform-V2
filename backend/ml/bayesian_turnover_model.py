@@ -174,7 +174,13 @@ class BayesianTurnoverModel:
         # Compute predictions for all posterior samples
         # Shape: (n_posterior, n_data_points)
         logits = intercept[:, None] + jnp.einsum('pf,df->pd', coeffs, X_jax)
-        probs = jax.nn.sigmoid(logits)
+        
+        # Manual sigmoid to avoid JAX/NumPy version compatibility issues
+        # sigmoid(x) = 1 / (1 + exp(-x))
+        probs = 1.0 / (1.0 + jnp.exp(-logits))
+        
+        # Convert to numpy explicitly 
+        probs = np.asarray(probs)
         
         elapsed = time.time() - start_time
         
@@ -196,7 +202,7 @@ class BayesianTurnoverModel:
         result = self.predict(X)
         return result["predictions"][0] if result["predictions"] else None
     
-    def _format_predictions(self, probs: jnp.ndarray, elapsed: float) -> dict:
+    def _format_predictions(self, probs: np.ndarray, elapsed: float) -> dict:
         """Format posterior predictions into structured output."""
         n_data_points = probs.shape[1]
         predictions = []
@@ -211,23 +217,26 @@ class BayesianTurnoverModel:
             "method": self.fit_info.get("method", "unknown")
         }
     
-    def _compute_uncertainty_metrics(self, sample_probs: jnp.ndarray) -> dict:
+    def _compute_uncertainty_metrics(self, sample_probs: np.ndarray) -> dict:
         """Compute uncertainty metrics from posterior samples."""
-        mean = float(jnp.mean(sample_probs))
-        std = float(jnp.std(sample_probs))
+        # Ensure numpy array
+        sample_probs = np.asarray(sample_probs)
+        
+        mean = float(np.mean(sample_probs))
+        std = float(np.std(sample_probs))
         
         ci = {
             "ci_50": [
-                float(jnp.percentile(sample_probs, 25)),
-                float(jnp.percentile(sample_probs, 75))
+                float(np.percentile(sample_probs, 25)),
+                float(np.percentile(sample_probs, 75))
             ],
             "ci_80": [
-                float(jnp.percentile(sample_probs, 10)),
-                float(jnp.percentile(sample_probs, 90))
+                float(np.percentile(sample_probs, 10)),
+                float(np.percentile(sample_probs, 90))
             ],
             "ci_95": [
-                float(jnp.percentile(sample_probs, 2.5)),
-                float(jnp.percentile(sample_probs, 97.5))
+                float(np.percentile(sample_probs, 2.5)),
+                float(np.percentile(sample_probs, 97.5))
             ]
         }
         

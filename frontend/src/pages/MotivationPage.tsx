@@ -17,7 +17,11 @@ interface MotivationRecord {
     Turnover: number;
 }
 
-export function MotivationPage() {
+interface MotivationPageProps {
+    mode?: 'demo' | 'production';
+}
+
+export function MotivationPage({ mode = 'demo' }: MotivationPageProps) {
     const [data, setData] = useState<MotivationRecord[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -28,7 +32,7 @@ export function MotivationPage() {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const response = await fetch('/api/motivation/data');
+                const response = await fetch(`/api/${mode}/motivation/data`);
                 if (!response.ok) {
                     throw new Error('Failed to fetch motivation data');
                 }

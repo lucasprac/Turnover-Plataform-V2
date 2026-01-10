@@ -14,7 +14,11 @@ import '@/global.css';
 
 type TabType = 'parameters' | 'uncertainty' | 'ppc';
 
-export function BayesianAnalysisPage() {
+interface BayesianAnalysisPageProps {
+    mode?: 'demo' | 'production';
+}
+
+export function BayesianAnalysisPage({ mode = 'demo' }: BayesianAnalysisPageProps) {
     const [activeTab, setActiveTab] = useState<TabType>('parameters');
     const pageRef = useRef<HTMLDivElement>(null);
     const headerRef = useRef<HTMLDivElement>(null);
@@ -42,7 +46,7 @@ export function BayesianAnalysisPage() {
         setParameterLoading(true);
         setParameterError(null);
         try {
-            const response = await axios.get('/api/bayesian/parameter-beliefs');
+            const response = await axios.get(`/api/${mode}/bayesian/parameter-beliefs`);
             setParameterData(response.data);
         } catch (err: any) {
             setParameterError(err.response?.data?.detail || 'Failed to fetch parameter beliefs');
@@ -56,7 +60,7 @@ export function BayesianAnalysisPage() {
         setUncertaintyLoading(true);
         setUncertaintyError(null);
         try {
-            const response = await axios.post('/api/bayesian/uncertainty-decomposition');
+            const response = await axios.post(`/api/${mode}/bayesian/uncertainty-decomposition`);
             setUncertaintyData(response.data);
         } catch (err: any) {
             setUncertaintyError(err.response?.data?.detail || 'Failed to fetch uncertainty data');
@@ -70,7 +74,7 @@ export function BayesianAnalysisPage() {
         setPpcLoading(true);
         setPpcError(null);
         try {
-            const response = await axios.post('/api/bayesian/ppc', null, {
+            const response = await axios.post(`/api/${mode}/bayesian/ppc`, null, {
                 params: { n_replications: 500 }
             });
             setPpcData(response.data);

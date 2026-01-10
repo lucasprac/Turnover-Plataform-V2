@@ -161,19 +161,20 @@ class BayesianInterpreter:
         y_rep = []
         p_rep = []
         
-        rng_key = random.PRNGKey(42)
+        # Use numpy random for simulation (avoid JAX version issues)
+        rng = np.random.RandomState(42)
         
         for i in range(n_use):
-            # Compute probabilities for this posterior draw
-            logits = intercept[i] + jnp.dot(X_jax, coeffs[i])
-            probs = jax.nn.sigmoid(logits)
+            # Compute probabilities for this posterior draw  
+            logits = np.asarray(intercept[i]) + np.dot(np.asarray(X_jax), np.asarray(coeffs[i]))
+            # Manual sigmoid: 1 / (1 + exp(-x))
+            probs = 1.0 / (1.0 + np.exp(-logits))
             
-            # Generate binary outcomes
-            rng_key, subkey = random.split(rng_key)
-            y_sim = random.bernoulli(subkey, probs)
+            # Generate binary outcomes using numpy
+            y_sim = rng.binomial(1, probs)
             
-            p_rep.append(np.array(probs))
-            y_rep.append(np.array(y_sim))
+            p_rep.append(probs)
+            y_rep.append(y_sim)
         
         y_rep = np.array(y_rep)  # (n_samples, n_obs)
         p_rep = np.array(p_rep)  # (n_samples, n_obs)

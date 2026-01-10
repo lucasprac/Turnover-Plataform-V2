@@ -1,7 +1,8 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from typing import Dict, List, Optional
 from pydantic import BaseModel
 from ..services.motivation_analysis import analyzer
+from backend.app.auth.dependencies import UserInfo, get_mode_user
 
 router = APIRouter(
     prefix="/motivation",
@@ -26,7 +27,7 @@ async def startup_event():
     analyzer.train_model(df)
 
 @router.post("/analyze")
-async def analyze_motivation(data: AnalysisInput):
+async def analyze_motivation(data: AnalysisInput, current_user: UserInfo = Depends(get_mode_user)):
     """
     Analyzes motivation delta between Onboarding and Climate surveys.
     Predicts Turnover Risk based on Climate data using Frank-Wolfe Multiclass Model.
@@ -41,11 +42,11 @@ async def analyze_motivation(data: AnalysisInput):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/dimensions")
-async def get_dimensions():
+async def get_dimensions(current_user: UserInfo = Depends(get_mode_user)):
     return [d.value for d in analyzer.dimensions]
 
 @router.get("/data")
-async def get_motivation_data():
+async def get_motivation_data(current_user: UserInfo = Depends(get_mode_user)):
     """
     Returns all motivation data records.
     """

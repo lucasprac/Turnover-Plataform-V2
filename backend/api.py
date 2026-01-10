@@ -18,7 +18,11 @@ if root_dir not in sys.path:
     sys.path.append(root_dir)
 
 from config import settings
-from backend.app.routers import employees, predictions, motivation, performance
+from backend.app.routers import employees, predictions, motivation, performance, auth
+from backend.app.database import engine, Base
+
+# Create database tables
+Base.metadata.create_all(bind=engine)
 
 # =============================================================================
 # Application Setup
@@ -45,14 +49,26 @@ app.add_middleware(
 # =============================================================================
 # Include Routers
 # =============================================================================
-app.include_router(employees.router, prefix="/api", tags=["Employees"])
-app.include_router(predictions.router, prefix="/api", tags=["Predictions"])
-app.include_router(motivation.router, prefix="/api", tags=["Motivation"])
-app.include_router(performance.router, prefix="/api", tags=["Performance"])
+# Auth router
+app.include_router(auth.router, tags=["Authentication"])
+
+# Feature routers with dual prefixes
+for prefix in ["/api/demo", "/api/app"]:
+    app.include_router(employees.router, prefix=prefix, tags=[f"Employees ({prefix})"])
+    app.include_router(predictions.router, prefix=prefix, tags=[f"Predictions ({prefix})"])
+    app.include_router(motivation.router, prefix=prefix, tags=[f"Motivation ({prefix})"])
+    app.include_router(performance.router, prefix=prefix, tags=[f"Performance ({prefix})"])
+
+# Legacy /api support
+app.include_router(employees.router, prefix="/api", tags=["Legacy Employees"])
+app.include_router(predictions.router, prefix="/api", tags=["Legacy Predictions"])
+app.include_router(motivation.router, prefix="/api", tags=["Legacy Motivation"])
+app.include_router(performance.router, prefix="/api", tags=["Legacy Performance"])
 
 # =============================================================================
-# Static Files - Serve React Frontend (in production)
+# Demo Routes - Duplicate routes for demo mode (use synthetic data)
 # =============================================================================
+# Note: Demo routes use the same handlers but can be extended to always use synthetic data
 STATIC_DIR = Path(root_dir) / "static"
 
 if STATIC_DIR.exists():

@@ -47,8 +47,19 @@ export const LandingPage = () => {
                         </div>
                         <div className="text-xl font-bold tracking-tight">TurnoverAI</div>
                     </div>
-                    <div className="flex gap-4">
-                        <a href="/login" className="text-sm font-medium hover:text-primary transition-colors">Sign In</a>
+                    <div className="flex gap-3">
+                        <a
+                            href="/demo/dashboard"
+                            className="px-4 py-2 text-sm font-medium border border-foreground/20 rounded-lg hover:bg-foreground/5 transition-colors"
+                        >
+                            Try Demo
+                        </a>
+                        <a
+                            href="/login"
+                            className="px-4 py-2 text-sm font-medium bg-foreground text-background rounded-lg hover:bg-foreground/90 transition-colors"
+                        >
+                            Sign In
+                        </a>
                     </div>
                 </nav>
 

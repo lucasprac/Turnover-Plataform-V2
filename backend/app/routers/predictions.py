@@ -8,7 +8,7 @@ from backend.app.services.prediction_service import (
 from backend.ml import one_year_model, five_year_model, data_generator
 import pandas as pd
 import numpy as np
-from backend.app.auth.dependencies import UserInfo, get_current_user
+from backend.app.auth.dependencies import UserInfo, get_mode_user
 
 router = APIRouter()
 
@@ -46,8 +46,6 @@ from backend.app.services.training_manager import training_manager
 
 class TrainStatusResponse(BaseModel):
     is_training: bool
-    progress: int
-    message: str
     progress: int
     message: str
     status: str
@@ -99,7 +97,7 @@ def get_training_status():
     }
 
 @router.post("/train", response_model=TrainResponse)
-def trigger_training(current_user: UserInfo = Depends(get_current_user)):
+def trigger_training(current_user: UserInfo = Depends(get_mode_user)):
     """
     Triggers the training process for both models.
     """
@@ -145,7 +143,7 @@ def trigger_training(current_user: UserInfo = Depends(get_current_user)):
     return {"message": "Training started in background.", "status": "success"}
 
 @router.post("/predict/individual", response_model=IndividualPrediction)
-def predict_individual_endpoint(input_data: IndividualInput, current_user: UserInfo = Depends(get_current_user)):
+def predict_individual_endpoint(input_data: IndividualInput, current_user: UserInfo = Depends(get_mode_user)):
     try:
         df = load_data()
         if df is None:
@@ -181,7 +179,7 @@ def predict_individual_endpoint(input_data: IndividualInput, current_user: UserI
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/predict/aggregate", response_model=AggregatePrediction)
-def predict_aggregate_endpoint(filters: AggregateFilters, current_user: UserInfo = Depends(get_current_user)):
+def predict_aggregate_endpoint(filters: AggregateFilters, current_user: UserInfo = Depends(get_mode_user)):
     try:
         df = load_data()
         if df is None:
@@ -340,6 +338,19 @@ def get_dashboard_data_endpoint():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# Demo and App mode aliases for dashboard-data
+@router.get("/demo/dashboard-data")
+def get_demo_dashboard_data():
+    """Demo mode dashboard data - uses synthetic data."""
+    return get_dashboard_data_endpoint()
+
+
+@router.get("/app/dashboard-data")
+def get_app_dashboard_data():
+    """Production mode dashboard data - uses user's data (currently same as demo)."""
+    return get_dashboard_data_endpoint()
+
+
 # =============================================================================
 # BAYESIAN PREDICTION SYSTEM (Independent from XGBoost)
 # =============================================================================
@@ -427,7 +438,7 @@ def get_bayesian_training_status():
 
 
 @router.post("/train/bayesian", response_model=TrainResponse)
-def trigger_bayesian_training(request: BayesianTrainRequest = BayesianTrainRequest(), current_user: UserInfo = Depends(get_current_user)):
+def trigger_bayesian_training(request: BayesianTrainRequest = BayesianTrainRequest(), current_user: UserInfo = Depends(get_mode_user)):
     """
     Train the Bayesian turnover model using NUTS (full MCMC).
     
@@ -465,7 +476,7 @@ def trigger_bayesian_training(request: BayesianTrainRequest = BayesianTrainReque
 
 
 @router.post("/predict/individual/bayesian", response_model=BayesianIndividualPrediction)
-def predict_individual_bayesian(input_data: IndividualInput, current_user: UserInfo = Depends(get_current_user)):
+def predict_individual_bayesian(input_data: IndividualInput, current_user: UserInfo = Depends(get_mode_user)):
     """
     Predict turnover probability for an individual using Bayesian model.
     
@@ -504,7 +515,7 @@ def predict_individual_bayesian(input_data: IndividualInput, current_user: UserI
 
 
 @router.post("/predict/aggregate/bayesian", response_model=BayesianAggregatePrediction)
-def predict_aggregate_bayesian(filters: AggregateFilters, current_user: UserInfo = Depends(get_current_user)):
+def predict_aggregate_bayesian(filters: AggregateFilters, current_user: UserInfo = Depends(get_mode_user)):
     """
     Predict aggregate turnover for a cohort using Bayesian model.
     

@@ -20,7 +20,11 @@ interface AggregateFilters {
     tenure_group: string;
 }
 
-export const AggregatePage = () => {
+interface AggregatePageProps {
+    mode?: 'demo' | 'production';
+}
+
+export const AggregatePage = ({ mode = 'demo' }: AggregatePageProps) => {
     const [filters, setFilters] = useState<AggregateFilters>({
         education_level: '',
         gender: '',
@@ -52,10 +56,10 @@ export const AggregatePage = () => {
             };
 
             if (predictionSystem === 'xgboost') {
-                const resp = await axios.post('/api/predict/aggregate', payload);
+                const resp = await axios.post(`/api/${mode}/predict/aggregate`, payload);
                 setResult(resp.data);
             } else {
-                const resp = await axios.post('/api/predict/aggregate/bayesian', payload);
+                const resp = await axios.post(`/api/${mode}/predict/aggregate/bayesian`, payload);
                 setBayesianResult(resp.data);
             }
         } catch (e) {

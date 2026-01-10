@@ -1,7 +1,7 @@
 /**
  * Login Page
  * 
- * Custom authentication page using Supabase Auth directly.
+ * Custom authentication page using mock auth.
  */
 import { useState, FormEvent } from 'react'
 import { useAuth } from '../components/AuthProvider'
@@ -23,9 +23,9 @@ export default function LoginPage() {
         )
     }
 
-    // Redirect if already logged in
+    // Redirect if already logged in - send to production app dashboard
     if (user) {
-        return <Navigate to="/dashboard" replace />
+        return <Navigate to="/app/dashboard" replace />
     }
 
     const handleSubmit = async (e: FormEvent) => {
@@ -145,7 +145,7 @@ export default function LoginPage() {
                 </p>
 
                 <p className="text-center text-xs" style={{ color: 'hsl(var(--muted-foreground))' }}>
-                    Powered by Supabase Authentication
+                    Mock Authentication Mode
                 </p>
             </div>
         </div>

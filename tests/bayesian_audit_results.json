@@ -1,0 +1,116 @@
+{
+  "convergence": {
+    "status": "pass",
+    "issues": []
+  },
+  "overfitting": {
+    "status": "pass",
+    "train_metrics": {
+      "accuracy": 0.6591666666666667,
+      "auc_roc": 0.7410715030227225,
+      "brier_score": 0.20717514230596165,
+      "log_loss": 0.6033409005368207
+    },
+    "test_metrics": {
+      "accuracy": 0.6833333333333333,
+      "auc_roc": 0.7670788115993595,
+      "brier_score": 0.19633296000665984,
+      "log_loss": 0.5707293197060407
+    },
+    "overfit_indicators": []
+  },
+  "ppc": {
+    "discrepancy_measures": {
+      "mean": {
+        "observed": 0.4866666666666667,
+        "replicated_mean": 0.47776666666666673,
+        "replicated_std": 0.02683304347669534,
+        "replicated_ci_95": [
+          0.42333333333333334,
+          0.5233333333333333
+        ],
+        "p_value": 0.43
+      },
+      "variance": {
+        "observed": 0.2498222222222222,
+        "replicated_mean": 0.2487856666666666,
+        "replicated_std": 0.001675664080629261,
+        "replicated_ci_95": [
+          0.2441222222222222,
+          0.25
+        ],
+        "p_value": 0.38
+      },
+      "sum": {
+        "observed": 146.0,
+        "replicated_mean": 143.33,
+        "replicated_std": 8.049913043008601,
+        "replicated_ci_95": [
+          127.0,
+          157.0
+        ],
+        "p_value": 0.43
+      },
+      "retention_rate": {
+        "observed": 0.5133333333333333,
+        "replicated_mean": 0.5222333333333333,
+        "replicated_std": 0.026833043476695337,
+        "replicated_ci_95": [
+          0.4766666666666667,
+          0.5766666666666667
+        ],
+        "p_value": 0.61
+      },
+      "max_consecutive_turnovers": {
+        "observed": 7.0,
+        "replicated_mean": 7.03,
+        "replicated_std": 1.5903144343179434,
+        "replicated_ci_95": [
+          5.0,
+          11.0
+        ],
+        "p_value": 0.54
+      }
+    },
+    "ppc_p_values": {
+      "mean": 0.43,
+      "variance": 0.38,
+      "sum": 0.43,
+      "retention_rate": 0.61,
+      "max_consecutive_turnovers": 0.54
+    },
+    "model_check_summary": {
+      "overall_fit": "good",
+      "summary": "Model passes PPC checks",
+      "issues": [],
+      "recommendation": "Model fits well"
+    },
+    "n_replications": 100,
+    "n_observations": 300
+  },
+  "bias": {
+    "status": "pass",
+    "subgroup_analysis": {},
+    "issues": []
+  },
+  "calibration": {
+    "ece": 0.06054526903303291,
+    "calibration_errors": [
+      0.07080373750068247,
+      0.02940797875093859,
+      0.06124801816124664,
+      0.07060067107280099,
+      0.02647923181454337,
+      0.10267651964116986,
+      0.05605265829298234,
+      0.07237639481371105,
+      0.11333827839957344,
+      0.002469201882680294
+    ]
+  },
+  "summary": {
+    "total_checks": 5,
+    "passed": 4,
+    "issues": 1
+  }
+}

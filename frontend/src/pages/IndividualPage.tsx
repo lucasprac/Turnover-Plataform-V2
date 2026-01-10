@@ -19,7 +19,11 @@ interface EmployeeSummary {
     tenure_months: number;
 }
 
-export const IndividualPage = () => {
+interface IndividualPageProps {
+    mode?: 'demo' | 'production';
+}
+
+export const IndividualPage = ({ mode = 'demo' }: IndividualPageProps) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [employees, setEmployees] = useState<EmployeeSummary[]>([]);
     const [loadingEmployees, setLoadingEmployees] = useState(false);
@@ -37,10 +41,10 @@ export const IndividualPage = () => {
         const fetchEmployees = async () => {
             setLoadingEmployees(true);
             try {
-                const resp = await axios.get(`/api/employees?limit=20&search=${searchTerm}`);
-                setEmployees(resp.data);
-            } catch (e) {
-                console.error("Failed to fetch employees", e);
+                const response = await axios.get(`/api/${mode}/employees?search=${searchTerm}`);
+                setEmployees(response.data);
+            } catch (error) {
+                console.error("Failed to fetch employees", error);
             } finally {
                 setLoadingEmployees(false);
             }
@@ -60,15 +64,15 @@ export const IndividualPage = () => {
 
         try {
             // 1. Get Details
-            const detailResp = await axios.get(`/api/employees/${id}`);
+            const detailResp = await axios.get(`/api/${mode}/employees/${id}`);
             setEmployeeDetails(detailResp.data);
 
             // 2. Get Prediction
             if (system === 'xgboost') {
-                const predictResp = await axios.post('/api/predict/individual', { employee_id: id });
+                const predictResp = await axios.post(`/api/${mode}/predict/individual`, { employee_id: id });
                 setPrediction(predictResp.data);
             } else {
-                const predictResp = await axios.post('/api/predict/individual/bayesian', { employee_id: id });
+                const predictResp = await axios.post(`/api/${mode}/predict/individual/bayesian`, { employee_id: id });
                 setBayesianPrediction(predictResp.data);
             }
         } catch (e) {

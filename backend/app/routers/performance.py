@@ -1,8 +1,9 @@
-from fastapi import APIRouter, HTTPException, Query, Body
+from fastapi import APIRouter, HTTPException, Query, Body, Depends
 from typing import List, Dict, Optional
 import json
 import os
 from backend.app.services.performance_service import evaluator
+from backend.app.auth.dependencies import UserInfo, get_mode_user
 
 CONFIG_FILE = "backend/data/performance_config.json"
 
@@ -14,7 +15,8 @@ def evaluate_performance(
     personal_obj: float = Query(1.0, ge=0.0, le=1.0, description="Personal Objective"),
     mgmt_obj: float = Query(0.8, ge=0.0, le=1.0, description="Management Objective"),
     inputs: Optional[List[str]] = Query(None, description="Input columns"),
-    outputs: Optional[List[str]] = Query(None, description="Output columns")
+    outputs: Optional[List[str]] = Query(None, description="Output columns"),
+    current_user: UserInfo = Depends(get_mode_user)
 ):
     """
     Returns performance evaluation metrics for all employees.
@@ -34,7 +36,7 @@ def evaluate_performance(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/columns")
-def get_available_columns():
+def get_available_columns(current_user: UserInfo = Depends(get_mode_user)):
     """
     Returns a list of numeric columns available for DEA evaluation.
     """
@@ -44,7 +46,7 @@ def get_available_columns():
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/configs")
-def get_saved_configs():
+def get_saved_configs(current_user: UserInfo = Depends(get_mode_user)):
     """
     Returns saved performance customizations.
     """
@@ -57,7 +59,7 @@ def get_saved_configs():
         return []
 
 @router.post("/configs")
-def save_config(config: Dict = Body(...)):
+def save_config(config: Dict = Body(...), current_user: UserInfo = Depends(get_mode_user)):
     """
     Saves a new performance customization.
     """
@@ -76,7 +78,7 @@ def save_config(config: Dict = Body(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/summary")
-def get_performance_summary():
+def get_performance_summary(current_user: UserInfo = Depends(get_mode_user)):
     """
     Returns aggregate summary for the dashboard.
     """
@@ -103,7 +105,7 @@ def get_performance_summary():
         print(f"Performance Summary Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 @router.get("/status")
-def get_performance_status():
+def get_performance_status(current_user: UserInfo = Depends(get_mode_user)):
     """
     Returns the current progress of the performance evaluation.
     """

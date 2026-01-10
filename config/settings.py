@@ -34,6 +34,21 @@ DEBUG = os.getenv("DEBUG", "false").lower() == "true"
 _origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173")
 ALLOWED_ORIGINS = [origin.strip() for origin in _origins.split(",")]
 
+# =============================================================================
+# Authentication
+# =============================================================================
+JWT_SECRET = os.getenv("JWT_SECRET", "super-secret-key-for-development-only")
+ALGORITHM = os.getenv("ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "480"))
+
+# Security warning for default JWT secret
+if JWT_SECRET == "super-secret-key-for-development-only" and not DEBUG:
+    import logging
+    logging.warning(
+        "SECURITY WARNING: Using default JWT_SECRET in non-debug mode. "
+        "Set JWT_SECRET environment variable for production!"
+    )
+
 
 
 # =============================================================================

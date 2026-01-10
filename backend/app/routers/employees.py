@@ -1,11 +1,16 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from backend.app.services.prediction_service import load_data
+from backend.app.auth.dependencies import UserInfo, get_mode_user
 import numpy as np
 
 router = APIRouter()
 
 @router.get("/employees")
-def get_employees(limit: int = 100, search: str = ""):
+def get_employees(
+    limit: int = 100, 
+    search: str = "",
+    current_user: UserInfo = Depends(get_mode_user)
+):
     df = load_data()
     if df is None:
         return []
@@ -34,7 +39,10 @@ def get_employees(limit: int = 100, search: str = ""):
     return result
 
 @router.get("/employees/{employee_id}")
-def get_employee_detail(employee_id: str):
+def get_employee_detail(
+    employee_id: str,
+    current_user: UserInfo = Depends(get_mode_user)
+):
     df = load_data()
     if df is None:
         raise HTTPException(status_code=404, detail="Data not available")

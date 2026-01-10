@@ -40,37 +40,30 @@ class TestTrainingEndpoints:
     
     def test_train_status_unauthenticated(self, client):
         """Test training status is publicly accessible."""
-        response = client.get("/train/status")
+        response = client.get("/api/train/status")
         assert response.status_code == 200
         data = response.json()
         assert "is_training" in data
         assert "progress" in data
     
-    def test_train_endpoint(self, client):
-        """Test training endpoint (now public)."""
-        response = client.post("/train")
-        # May fail due to model issues/bg thread, but should accessible (not 401)
-        assert response.status_code != 401
+    def test_train_endpoint_requires_auth(self, client):
+        """Test training endpoint requires authentication."""
+        response = client.post("/api/train")
+        # Protected endpoints should return 401 without authentication
+        assert response.status_code == 401
 
 
 class TestPredictionEndpoints:
     """Tests for prediction endpoints."""
     
-    def test_individual_prediction(self, client, sample_df):
-        """Test individual prediction endpoint."""
-        with patch('backend.app.routers.predictions.load_data', return_value=sample_df):
-            with patch('backend.app.routers.predictions.predict_individual') as mock_predict:
-                mock_predict.return_value = {
-                    'turnover_probability': 0.35,
-                    'shap_values': {'feature1': 0.1},
-                    'grouped_shap': []
-                }
-                response = client.post(
-                    "/predict/individual",
-                    json={"employee_id": "EMP001"}
-                )
-                # Should not be 401 or 500
-                assert response.status_code in [200, 404]
+    def test_individual_prediction_requires_auth(self, client):
+        """Test individual prediction endpoint requires authentication."""
+        response = client.post(
+            "/api/predict/individual",
+            json={"employee_id": "EMP001"}
+        )
+        # Protected endpoints should return 401 without authentication
+        assert response.status_code == 401
 
 
 class TestBayesianEndpoints:
@@ -78,7 +71,7 @@ class TestBayesianEndpoints:
     
     def test_bayesian_train_status(self, client):
         """Test Bayesian training status endpoint."""
-        response = client.get("/train/bayesian/status")
+        response = client.get("/api/train/bayesian/status")
         assert response.status_code == 200
         data = response.json()
         assert "is_training" in data
@@ -91,7 +84,7 @@ class TestDashboardEndpoint:
     def test_dashboard_data_loads(self, client):
         """Test dashboard data endpoint."""
         with patch('backend.app.routers.predictions.load_data', return_value=None):
-            response = client.get("/dashboard-data")
+            response = client.get("/api/dashboard-data")
             assert response.status_code == 200
             data = response.json()
             assert "metrics" in data

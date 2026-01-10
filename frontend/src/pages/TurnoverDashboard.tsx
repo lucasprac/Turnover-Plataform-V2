@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Info } from 'lucide-react';
 import { Sidebar } from '@/layout/Sidebar';
 import { NavBar } from '@/layout/NavBar';
 import { ContributionChart } from '../features/analytics/ContributionChart';
@@ -11,7 +11,7 @@ import { PredictionResults } from '@/features/turnover/PredictionResults';
 import type { DashboardData } from '@/types';
 
 interface DashboardProps {
-  apiEndpoint: string;
+  mode?: 'demo' | 'production';
 }
 
 type AnalysisTab = 'global' | 'groups' | 'compacity' | 'drivers';
@@ -23,10 +23,15 @@ const TABS: { id: AnalysisTab; label: string }[] = [
   { id: 'drivers', label: 'Drivers' },
 ];
 
-export function Dashboard({ apiEndpoint }: DashboardProps) {
+export function Dashboard({ mode = 'demo' }: DashboardProps) {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<AnalysisTab>('global');
+
+  // Determine API endpoint based on mode
+  const apiEndpoint = mode === 'production'
+    ? '/api/app/dashboard-data'
+    : '/api/demo/dashboard-data';
 
   const fetchData = async () => {
     setLoading(true);
